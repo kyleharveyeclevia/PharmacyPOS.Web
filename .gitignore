@@ -1,0 +1,30 @@
+# ========================
+# FRONTEND (React / Vite)
+# ========================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ========================
+# BACKEND (.NET)
+# ========================
+backend/bin/
+backend/obj/
+backend/appsettings.Development.json
+
+# ========================
+# ENV FILES
+# ========================
+.env
+.env.*
+
+# ========================
+# LOGS
+# ========================
+*.log
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
