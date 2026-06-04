@@ -167,7 +167,7 @@ export default function InventoryPage() {
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
             <button onClick={openAdd}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition">
+              className="flex items-center gap-1.5 bg-green-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition">
               <Plus size={16} /> Add Product
             </button>
           </div>

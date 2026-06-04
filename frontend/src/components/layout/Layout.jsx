@@ -57,12 +57,12 @@ export default function Layout() {
     <div className="flex h-screen bg-gray-100 overflow-hidden">
 
       {/* Sidebar */}
-      <aside className="w-56 bg-gradient-to-b from-blue-900 to-indigo-900 flex flex-col shrink-0 shadow-xl">
-        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-blue-800">
+      <aside className="w-56 bg-gradient-to-b from-green-900 to-emerald-900 flex flex-col shrink-0 shadow-xl">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-green-800">
           <div className="bg-white/15 rounded-lg p-1.5"><Pill size={20} className="text-white" /></div>
           <div>
-            <div className="text-white font-bold text-sm leading-tight">RxPharmacy</div>
-            <div className="text-blue-300 text-xs">Plus POS</div>
+            <div className="text-white font-bold text-sm leading-tight">Lourders Pharmacy</div>
+            <div className="text-green-300 text-xs">Plus POS System</div>
           </div>
         </div>
 
@@ -71,21 +71,21 @@ export default function Layout() {
             <NavLink key={to} to={to}
               className={({ isActive }) =>
                 'flex items-center gap-3 px-5 py-2.5 text-sm transition-all ' +
-                (isActive ? 'bg-white/15 text-white font-semibold border-r-2 border-blue-300'
-                          : 'text-blue-200 hover:bg-white/10 hover:text-white')}>
+                (isActive ? 'bg-white/15 text-white font-semibold border-r-2 border-green-300'
+                          : 'text-green-200 hover:bg-white/10 hover:text-white')}>
               <Icon size={17} />{label}
             </NavLink>
           ))}
-          <div className="mx-4 my-3 border-t border-blue-800" />
+          <div className="mx-4 my-3 border-t border-green-800" />
           <button onClick={handleXRead}
-            className="flex items-center gap-3 px-5 py-2.5 text-sm text-blue-200 hover:bg-white/10 hover:text-white w-full text-left transition-all">
+            className="flex items-center gap-3 px-5 py-2.5 text-sm text-green-200 hover:bg-white/10 hover:text-white w-full text-left transition-all">
             <Printer size={17} />X-Read
           </button>
         </nav>
 
-        <div className="border-t border-blue-800 p-4">
-          <div className="text-blue-100 text-xs font-medium truncate mb-0.5">{user?.fullName}</div>
-          <div className="text-blue-400 text-xs mb-3">{user?.role}</div>
+        <div className="border-t border-green-800 p-4">
+          <div className="text-green-100 text-xs font-medium truncate mb-0.5">{user?.fullName}</div>
+          <div className="text-green-400 text-xs mb-3">{user?.role}</div>
           <button onClick={() => { setCash(''); setModal(true); }}
             className="flex items-center gap-2 text-red-300 hover:text-red-200 text-xs w-full transition-colors">
             <LogOut size={13} />Logout / Z-Read
@@ -100,7 +100,7 @@ export default function Layout() {
             {new Date().toLocaleDateString('en-PH', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-700">
-            <div className="w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+            <div className="w-7 h-7 bg-green-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
               {(user?.fullName?.[0] ?? 'U').toUpperCase()}
             </div>
             <span className="font-medium">{user?.fullName}</span>
@@ -124,7 +124,7 @@ export default function Layout() {
             <label className="block text-sm font-semibold text-gray-700 mb-1">Closing Cash (PHP)</label>
             <input type="number" step="0.01" min="0" value={cash}
               onChange={e => setCash(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-2xl font-bold text-right focus:ring-2 focus:ring-blue-500 outline-none mb-5"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-2xl font-bold text-right focus:ring-2 focus:ring-green-500 outline-none mb-5"
               placeholder="0.00" autoFocus />
             <div className="flex gap-3">
               <button onClick={() => doLogout(false)} disabled={working}

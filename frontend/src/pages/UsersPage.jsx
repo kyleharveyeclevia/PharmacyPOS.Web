@@ -95,7 +95,7 @@ export default function UsersPage() {
         <div className="flex items-center justify-between mb-5">
           <h1 className="text-2xl font-bold text-gray-800">User Management</h1>
           <button onClick={openAdd}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition">
+            className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition">
             <Plus size={16} /> Add User
           </button>
         </div>

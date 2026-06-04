@@ -124,7 +124,7 @@ export default function ReportsPage() {
         <input type="date" value={end} onChange={e => setEnd(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
         <button onClick={load} disabled={loading}
-          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+          className="flex items-center gap-1.5 bg-green-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
           <Search size={14} />{loading ? 'Loading…' : 'Search'}
         </button>
         <div className="flex gap-2 ml-auto">

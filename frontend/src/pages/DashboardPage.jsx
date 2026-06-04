@@ -41,8 +41,8 @@ export default function DashboardPage() {
           <p className="text-gray-500 text-sm mt-0.5">{fmtDate(time)}</p>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-blue-700 font-mono">{fmtTime(time)}</div>
-          <button onClick={load} className="text-xs text-gray-400 hover:text-blue-600 mt-1 transition-colors">↺ Refresh</button>
+          <div className="text-2xl font-bold text-green-700 font-mono">{fmtTime(time)}</div>
+          <button onClick={load} className="text-xs text-gray-400 hover:text-green-600 mt-1 transition-colors">↺ Refresh</button>
         </div>
       </div>
 
@@ -78,7 +78,7 @@ export default function DashboardPage() {
               <tbody className="divide-y divide-gray-100">
                 {(data?.RecentTransactions ?? []).map(tx => (
                   <tr key={tx.Id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2.5 font-mono text-xs text-blue-600">{tx.ReceiptNumber}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs text-green-600">{tx.ReceiptNumber}</td>
                     <td className="px-4 py-2.5 text-gray-700 text-xs">{tx.CashierName}</td>
                     <td className="px-4 py-2.5 text-right font-bold text-green-600">{php(tx.TotalAmount)}</td>
                   </tr>

@@ -137,7 +137,7 @@ export default function POSPage() {
               <input ref={searchRef} value={search}
                 onChange={e => setSearch(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && scanBarcode()}
-                className="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none"
                 placeholder="Scan barcode or search product… (Enter to scan)" />
             </div>
             <button onClick={scanBarcode}
@@ -151,7 +151,7 @@ export default function POSPage() {
             <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden max-h-52 overflow-y-auto shadow-md">
               {results.map(p => (
                 <button key={p.Id} onMouseDown={() => addToCart(p)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 text-left text-sm border-b border-gray-100 last:border-0">
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-green-50 text-left text-sm border-b border-gray-100 last:border-0">
                   <div>
                     <span className="font-semibold text-gray-800">{p.Name}</span>
                     {p.RequiresPrescription && <span className="ml-2 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-medium">Rx</span>}
@@ -171,8 +171,8 @@ export default function POSPage() {
 
         {/* Cart */}
         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 bg-blue-50 border-b border-blue-100">
-            <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm">
+          <div className="flex items-center justify-between px-5 py-3 bg-green-50 border-b border-green-100">
+            <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
               <ShoppingCart size={15} />
               Cart — {cart.reduce((s, i) => s + i.Quantity, 0)} item(s)
             </div>
@@ -245,14 +245,14 @@ export default function POSPage() {
               const c = customers.find(c => c.Id === Number(e.target.value));
               setCustomerId(c?.Id ?? null);
               setIsScPwd(!!(c?.IsSeniorCitizen || c?.IsPWD));
-            }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 outline-none">
               {customers.map(c => <option key={c.Id} value={c.Id}>{c.Name}</option>)}
             </select>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" checked={isScPwd} onChange={e => setIsScPwd(e.target.checked)} className="w-4 h-4 accent-blue-600" />
-            <span className="text-sm font-semibold text-blue-700">SC / PWD — 20% VAT-Exempt</span>
+            <input type="checkbox" checked={isScPwd} onChange={e => setIsScPwd(e.target.checked)} className="w-4 h-4 accent-green-600" />
+            <span className="text-sm font-semibold text-green-700">SC / PWD — 20% VAT-Exempt</span>
           </label>
 
           {!isScPwd && (
@@ -260,17 +260,17 @@ export default function POSPage() {
               <span className="text-sm text-gray-600 whitespace-nowrap">Discount %</span>
               <input type="number" min={0} max={100} value={discPct}
                 onChange={e => setDiscPct(Math.min(100, Math.max(0, Number(e.target.value))))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-right focus:ring-2 focus:ring-blue-500 outline-none" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-right focus:ring-2 focus:ring-green-500 outline-none" />
             </div>
           )}
 
           <input value={rxNo} onChange={e => setRxNo(e.target.value)}
             placeholder="Prescription # (if applicable)"
-            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-green-500 outline-none" />
         </div>
 
         {/* Totals */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Subtotal (VAT-incl.):</span>
             <span className="text-gray-800">{php(sub)}</span>
@@ -292,9 +292,9 @@ export default function POSPage() {
               RA 9994/RA 9442 — 20% on VAT-exclusive price. Transaction is VAT-exempt.
             </p>
           )}
-          <div className="border-t border-blue-200 pt-2 flex justify-between items-center">
-            <span className="text-base font-bold text-blue-900">TOTAL DUE</span>
-            <span className="text-2xl font-bold text-blue-700 tabular-nums">{php(total)}</span>
+          <div className="border-t border-green-200 pt-2 flex justify-between items-center">
+            <span className="text-base font-bold text-green-900">TOTAL DUE</span>
+            <span className="text-2xl font-bold text-green-700 tabular-nums">{php(total)}</span>
           </div>
         </div>
 
@@ -306,7 +306,7 @@ export default function POSPage() {
               {PAYMENTS.map(m => (
                 <button key={m} onClick={() => setPayment(m)}
                   className={'px-3 py-1.5 rounded-lg text-xs font-semibold border transition ' +
-                    (payment === m ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600')}>
+                    (payment === m ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-300 hover:border-green-400 hover:text-green-600')}>
                   {m}
                 </button>
               ))}
@@ -318,7 +318,7 @@ export default function POSPage() {
             <div className="flex gap-2">
               <input type="number" min={0} step={0.01} value={tendered || ''}
                 onChange={e => setTendered(Number(e.target.value))}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xl font-bold text-right focus:ring-2 focus:ring-blue-500 outline-none tabular-nums"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xl font-bold text-right focus:ring-2 focus:ring-green-500 outline-none tabular-nums"
                 placeholder="0.00" />
               <button onClick={() => setTendered(total)}
                 className="bg-teal-600 hover:bg-teal-700 text-white px-3 rounded-lg text-xs font-bold transition">
@@ -331,7 +331,7 @@ export default function POSPage() {
           <div className="grid grid-cols-3 gap-1.5">
             {QUICK.map(amt => (
               <button key={amt} onClick={() => setTendered(p => p + amt)}
-                className="border border-gray-300 rounded-lg py-1.5 text-xs font-semibold hover:bg-gray-50 hover:border-blue-300 transition">
+                className="border border-gray-300 rounded-lg py-1.5 text-xs font-semibold hover:bg-gray-50 hover:border-green-300 transition">
                 +₱{amt}
               </button>
             ))}
@@ -357,7 +357,7 @@ export default function POSPage() {
 
           {lastReceipt && (
             <div className="text-center">
-              <span className="text-xs text-blue-500 flex items-center gap-1 justify-center">
+              <span className="text-xs text-green-500 flex items-center gap-1 justify-center">
                 <Printer size={11} /> Last: {lastReceipt}
               </span>
             </div>
