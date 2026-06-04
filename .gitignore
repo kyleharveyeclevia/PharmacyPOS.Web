@@ -28,3 +28,10 @@ backend/appsettings.Development.json
 # ========================
 .DS_Store
 Thumbs.db
+
+# ========================
+# VISUAL STUDIO
+# ========================
+backend/.vs/
+*.suo
+*.vsidx
