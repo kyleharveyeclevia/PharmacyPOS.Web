@@ -257,7 +257,7 @@ namespace PharmacyApi.Services
         public async Task<List<MovingItemsDto>> GetFastMovingItemsAsync(DateTime start, DateTime end)
         {
             using var c = _db.Create();
-            return (await c.QueryAsync<MovingItemsDto>("sp_GetFastMovingItemByDateRange",
+            return (await c.QueryAsync<MovingItemsDto>("sp_GetFastMovingItemsByDateRange",
                 new { StartDate = start.Date, EndDate = end.Date }, commandType: CommandType.StoredProcedure)).ToList();
         }
 
