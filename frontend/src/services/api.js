@@ -20,8 +20,9 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  login:  (username, password) => api.post('/auth/login',  { Username: username, Password: password }),
+  login:  (username, password, terminalGuid) => api.post('/auth/login',  { Username: username, Password: password, TerminalGuid: terminalGuid}),
   logout: (closingCash)        => api.post('/auth/logout', { ClosingCash: closingCash }),
+  terminalActivate: (terminalCode)        => api.post('/auth/terminal-activate', { TerminalCode: terminalCode }),
 };
 
 export const productsApi = {

@@ -13,6 +13,7 @@ namespace PharmacyApi.Services
     {
         Task<(bool ok, string msg, LoginResponse? data)> LoginAsync(LoginRequest req);
         Task CloseSessionAsync(int sessionId, decimal closingCash);
+        Task<(bool ok, string msg, TerminalActivateResponse? data)> ActivateTerminalAsync(TerminalActivateRequest req);
     }
 
     public class AuthService : IAuthService
@@ -24,21 +25,54 @@ namespace PharmacyApi.Services
         public async Task<(bool ok, string msg, LoginResponse? data)> LoginAsync(LoginRequest req)
         {
             using var conn = _db.Create();
+
+            // 1. Validate terminal first
+            var terminal = await conn.QueryFirstOrDefaultAsync<TerminalRow>(
+                @"SELECT * FROM Terminals WHERE TerminalGuid = @guid AND IsActive = 1",
+                new { guid = req.TerminalGuid });
+
+            if (terminal == null)
+                return (false, "Invalid terminal device.", null);
+
+            // 2. Validate user
             var user = await conn.QueryFirstOrDefaultAsync<LoginUserRow>(
-                "sp_LoginUser", new { Username=req.Username, Terminal="WEB-1" },
+                "sp_LoginUser",
+                new { Username = req.Username },
                 commandType: CommandType.StoredProcedure);
 
-            if (user == null)                                    return (false, "Invalid username or password.", null);
-            if (!BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash)) return (false, "Invalid username or password.", null);
+            if (user == null)
+                return (false, "Invalid username or password.", null);
 
-            await conn.ExecuteAsync("sp_UpdateLastLogin", new { UserId=user.Id }, commandType: CommandType.StoredProcedure);
+            if (!BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+                return (false, "Invalid username or password.", null);
 
-            var sessionId = await conn.ExecuteScalarAsync<int>("sp_OpenSession",
-                new { UserId=user.Id, Terminal="WEB-1", OpeningCash=0m },
+            // 3. Open session with terminal ID
+            var sessionId = await conn.ExecuteScalarAsync<int>(
+                "sp_OpenSessionWithTerminalId",
+                new
+                {
+                    UserId = user.Id,
+                    TerminalId = terminal.Id,
+                    OpeningCash = 0m
+                },
+                commandType: CommandType.StoredProcedure);
+
+            // 4. Update last login
+            await conn.ExecuteAsync("sp_UpdateLastLogin",
+                new { UserId = user.Id },
                 commandType: CommandType.StoredProcedure);
 
             var token = BuildJwt(user.Id, user.Username, user.FullName, user.Role, sessionId);
-            return (true, "Login successful.", new LoginResponse(token, user.FullName, user.Username, user.Role, user.Id, sessionId));
+
+            return (true, "Login successful.",
+                new LoginResponse(
+                    token,
+                    user.FullName,
+                    user.Username,
+                    user.Role,
+                    user.Id,
+                    sessionId
+                ));
         }
 
         public async Task CloseSessionAsync(int sessionId, decimal closingCash)
@@ -47,6 +81,28 @@ namespace PharmacyApi.Services
             await conn.ExecuteAsync("sp_CloseSession",
                 new { SessionId=sessionId, ClosingCash=closingCash },
                 commandType: CommandType.StoredProcedure);
+        }
+
+        public async Task<(bool ok, string msg, TerminalActivateResponse? data)> ActivateTerminalAsync(TerminalActivateRequest req)
+        {
+            using var conn = _db.Create();
+            string query = @"SELECT TOP 1 *
+          FROM Terminals
+          WHERE TerminalCode = @code AND IsActive = 1";
+            var terminal = await conn.QueryFirstOrDefaultAsync<TerminalRow>(
+                query,
+                new { code = req.TerminalCode });
+
+            if (terminal == null)
+                return (false, "Invalid or inactive terminal.", null);
+
+            return (true, "Terminal activated.", new TerminalActivateResponse(
+                terminal.Id,
+                terminal.TerminalGuid,
+                terminal.TerminalCode,
+                terminal.TerminalName,
+                terminal.BranchId
+            ));
         }
 
         private string BuildJwt(int userId, string username, string fullName, string role, int sessionId)
@@ -78,6 +134,16 @@ namespace PharmacyApi.Services
             public string   Role         { get; set; } = "";
             public bool     IsActive     { get; set; }
             public DateTime? LastLogin   { get; set; }
+        }
+
+        public class TerminalRow
+        {
+            public int Id { get; set; }
+            public Guid TerminalGuid { get; set; }
+            public string TerminalCode { get; set; } = "";
+            public string TerminalName { get; set; } = "";
+            public int BranchId { get; set; }
+            public bool IsActive { get; set; }
         }
     }
 }

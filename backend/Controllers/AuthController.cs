@@ -24,6 +24,21 @@ namespace PharmacyApi.Controllers
             return Ok(ApiResult<LoginResponse>.Ok(data!, msg));
         }
 
+        [HttpPost("terminal-activate")]
+        [AllowAnonymous]
+        public async Task<ActionResult<ApiResult<TerminalActivateResponse>>> ActivateTerminal([FromBody] TerminalActivateRequest req)
+        {
+            if (string.IsNullOrWhiteSpace(req.TerminalCode))
+                return BadRequest(ApiResult<TerminalActivateResponse>.Fail("Terminal code is required."));
+
+            var (ok, msg, data) = await _auth.ActivateTerminalAsync(req);
+
+            if (!ok)
+                return Unauthorized(ApiResult<TerminalActivateResponse>.Fail(msg));
+
+            return Ok(ApiResult<TerminalActivateResponse>.Ok(data!, msg));
+        }
+
         [HttpPost("logout")]
         [Authorize]
         public async Task<ActionResult<ApiResult>> Logout([FromBody] LogoutRequest req)

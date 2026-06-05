@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { Search, X, Plus, Minus, Trash2, CheckCircle, ShoppingCart, Printer } from 'lucide-react';
 
 const php = (n) => '₱' + (n ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-const PAYMENTS = ['Cash', 'Card', 'GCash', 'PhilHealth', 'HMO'];
+const PAYMENTS = ['Cash', 'Card', 'GCash'];
 const QUICK    = [20, 50, 100, 200, 500, 1000];
 
 export default function POSPage() {
@@ -315,13 +315,13 @@ export default function POSPage() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Amount Tendered</label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-stretch">
               <input type="number" min={0} step={0.01} value={tendered || ''}
                 onChange={e => setTendered(Number(e.target.value))}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xl font-bold text-right focus:ring-2 focus:ring-green-500 outline-none tabular-nums"
+                 className="w-full min-w-0 flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xl font-bold text-right tabular-nums focus:ring-2 focus:ring-green-500 outline-none"
                 placeholder="0.00" />
               <button onClick={() => setTendered(total)}
-                className="bg-teal-600 hover:bg-teal-700 text-white px-3 rounded-lg text-xs font-bold transition">
+                className="bg-teal-600 hover:bg-teal-700 text-white px-1 rounded-lg text-xs font-bold transition">
                 EXACT
               </button>
             </div>
@@ -352,7 +352,7 @@ export default function POSPage() {
             {processing
               ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <CheckCircle size={18} />}
-            {processing ? 'Processing...' : '⚡  PROCESS SALE  (F12)'}
+            {processing ? 'Processing...' : 'PROCESS SALE '}
           </button>
 
           {lastReceipt && (

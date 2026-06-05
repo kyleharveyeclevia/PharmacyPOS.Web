@@ -1,10 +1,19 @@
 namespace PharmacyApi.Models
 {
     // ── AUTH ─────────────────────────────────────────────────────────────────
-    public record LoginRequest(string Username, string Password);
+    public record LoginRequest(string Username, string Password, Guid TerminalGuid);
     public record LoginResponse(string Token, string FullName, string Username,
                                 string Role, int UserId, int SessionId);
     public record LogoutRequest(decimal ClosingCash);
+    public record TerminalActivateRequest(string TerminalCode);
+
+    public record TerminalActivateResponse(
+    int TerminalId,
+    Guid TerminalGuid,
+    string TerminalCode,
+    string TerminalName,
+    int BranchId
+);
 
     // ── USER ─────────────────────────────────────────────────────────────────
     public class UserDto

@@ -8,11 +8,24 @@ import POSPage from './pages/POSPage.jsx';
 import InventoryPage from './pages/InventoryPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
+import TerminalSetupPage from './pages/TerminalSetupPage.jsx';
+import TerminalGuard from './guards/TerminalGuard.jsx';
 
 function ProtectedRoute({ children, roles }) {
   const { user, isLoggedIn } = useAuth();
+
+   // ✅ Terminal check
+  const terminalGuid = localStorage.getItem('terminalGuid');
+
+  if (!terminalGuid) {
+    return <Navigate to="/terminal-setup" replace />;
+  }
+ 
+  // auth check
   if (!isLoggedIn) return <Navigate to="/login" replace />;
+  
   if (roles && !roles.includes(user.role)) return <Navigate to="/dashboard" replace />;
+  
   return children;
 }
 
@@ -22,7 +35,10 @@ export default function App() {
       <BrowserRouter>
         <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={ <TerminalGuard>
+    <LoginPage />
+  </TerminalGuard>} />
+          <Route path="/terminal-setup" element={<TerminalSetupPage />} />
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />

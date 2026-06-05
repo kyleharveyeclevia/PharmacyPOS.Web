@@ -5,6 +5,7 @@ import { authApi } from '../services/api.js';
 import toast from 'react-hot-toast';
 import { Pill, Eye, EyeOff, LogIn } from 'lucide-react';
 
+
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -16,9 +17,18 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) { toast.error('Enter username and password.'); return; }
+    
+    const terminalGuid = localStorage.getItem('terminalGuid');
+
+    if (!terminalGuid) {
+      toast.error('Terminal not activated.');
+      navigate('/terminal-setup');
+      return;
+    }
+
     setLoading(true);
     try {
-      const { data } = await authApi.login(username, password);
+      const { data } = await authApi.login(username, password, terminalGuid);
       if (!data.Success) { toast.error(data.Message); return; }
       const d = data.Data;
       login({ userId: d.UserId, sessionId: d.SessionId, username: d.Username, fullName: d.FullName, role: d.Role, token: d.Token });
@@ -53,10 +63,10 @@ export default function LoginPage() {
               </div>
             ))}
           <div className="mt-8 pt-6 border-t border-green-600 text-green-300 text-xs">
-            <p className="font-semibold mb-1">Default credentials:</p>
+            {/* <p className="font-semibold mb-1">Default credentials:</p>
             <p className="font-mono">admin / admin123</p>
             <p className="font-mono">cashier1 / cashier123</p>
-            <p className="font-mono">pharmacist1 / pharma123</p>
+            <p className="font-mono">pharmacist1 / pharma123</p> */}
           </div>
         </div>
 
