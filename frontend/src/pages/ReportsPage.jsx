@@ -7,20 +7,34 @@ import { useAuth } from '../context/AuthContext.jsx';
 const php = (n) => '₱' + (n ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
 const today = () => new Date().toISOString().split('T')[0];
 const fmtDt = (s) => new Date(s).toLocaleString('en-PH', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+const debugging = true;
 
-function Modal({ title, onClose, children }) {
+const WriteToConsole = (text, data) => {
+  if (debugging) {
+    if (data === undefined)
+      data = '';
+    console.log(text, data);
+  }
+}
+
+const Modal = ({ title, onClose, children }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none"><X size={18} /></button>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+          >
+            <X size={18} />
+          </button>
         </div>
         {children}
       </div>
     </div>
   );
-}
+};
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -29,8 +43,6 @@ export default function ReportsPage() {
   const [start, setStart] = useState(today());
   const [end, setEnd] = useState(today());
   const [txList, setTxList] = useState([]);
-  const [fastMovingItems, setFastMovingItems] = useState([]);
-  const [slowMovingItems, setSlowMovingItems] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [xread, setXread] = useState(null);
@@ -39,25 +51,104 @@ export default function ReportsPage() {
   const [showZ, setShowZ] = useState(false);
   const [voidTx, setVoidTx] = useState(null);
   const [voidReason, setVoidReason] = useState('');
+  // Slow moving items
+  const [slowMovingItems, setSlowMovingItems] = useState([]);
+  const [slowPage, setSlowPage] = useState(1);
+  const [slowTotalPages, setSlowTotalPages] = useState(1);
+  const slowPageSize = 10;
+
+  // fast moving items 
+  const [fastMovingItems, setFastMovingItems] = useState([]);
+  const [fastPage, setFastPage] = useState(1);
+  const [fastTotalPages, setFastTotalPages] = useState(1);
+  const fastPageSize = 10;
 
   const load = async () => {
     setLoading(true);
     try {
-      const [txRes, sumRes, fastMovingItemsRes, slowMovingItemsRes] = await Promise.all([
+      const [txRes, sumRes] = await Promise.all([
         transactionsApi.byRange(start, end),
         reportsApi.summary(start, end),
-        reportsApi.getFastMovingItems(start, end),
-        reportsApi.getSlowMovingItems(start, end),
       ]);
       if (txRes.data.Success) setTxList(txRes.data.Data);
       if (sumRes.data.Success) setSummary(sumRes.data.Data);
-      if (fastMovingItemsRes.data.Success) setFastMovingItems(fastMovingItemsRes.data.Data);
-      if (slowMovingItemsRes.data.Success) setSlowMovingItems(slowMovingItemsRes.data.Data);
-    } catch { toast.error('Failed to load.'); }
+
+    } catch (error) {
+      toast.error('Failed to load.');
+      console.log(error);
+    }
     finally { setLoading(false); }
   };
 
+  const loadSlowMovingItems = async () => {
+    setLoading(true);
+    WriteToConsole('load slow moving items');
+
+    try {
+      const [slowMovingItemsRes] = await Promise.all([
+        reportsApi.getSlowMovingItemsWithOffset(start, end, slowPage, slowPageSize),
+      ]);
+
+
+      if (slowMovingItemsRes.data.Success) {
+        setSlowMovingItems(slowMovingItemsRes.data.Data.Items ?? []);
+
+        let totalPages = Math.ceil(
+          slowMovingItemsRes.data.Data.TotalRecords / slowPageSize
+        );
+
+        setSlowTotalPages(totalPages);
+
+        WriteToConsole('Total Records:', slowMovingItemsRes.data.Data.TotalRecords);
+        WriteToConsole('Calculated Total Pages:', totalPages);
+      }
+    }
+
+    catch {
+      toast.error('Failed to load slow moving items');
+    }
+
+    finally {
+      setLoading(false);
+    }
+  }
+
+  const loadFastMovingItems = async () => {
+    setLoading(true);
+    WriteToConsole('load fast moving items');
+
+    try {
+      const [fastMovingItemsRes] = await Promise.all([
+        reportsApi.getFastMovingItemsWithOffset(start, end, fastPage, fastPageSize),
+      ]);
+
+
+      if (fastMovingItemsRes.data.Success) {
+        setFastMovingItems(fastMovingItemsRes.data.Data.Items ?? []);
+
+        let totalPages = Math.ceil(
+          fastMovingItemsRes.data.Data.TotalRecords / fastPageSize
+        );
+
+        setFastTotalPages(totalPages);
+
+        WriteToConsole('Total Records:', fastMovingItemsRes.data.Data.TotalRecords);
+        WriteToConsole('Calculated Total Pages:', totalPages);
+      }
+    }
+
+    catch {
+      toast.error('Failed to load slow moving items');
+    }
+
+    finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => { load(); }, []);
+  useEffect(() => { loadSlowMovingItems() }, [slowPage]);
+  useEffect(() => { loadFastMovingItems() }, [fastPage]);
 
   const genXRead = async () => {
     try {
@@ -123,7 +214,7 @@ export default function ReportsPage() {
         <span className="text-sm text-gray-600">To</span>
         <input type="date" value={end} onChange={e => setEnd(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-        <button onClick={load} disabled={loading}
+        <button onClick={() => { load(); loadSlowMovingItems(); loadFastMovingItems();}} disabled={loading}
           className="flex items-center gap-1.5 bg-green-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
           <Search size={14} />{loading ? 'Loading…' : 'Search'}
         </button>
@@ -318,20 +409,44 @@ export default function ReportsPage() {
                     }>{php(fstmovingitm.TotalSales)}</span>
                   </td>
                   <td className="px-4 py-2.5 text-gray-600 text-xs">{php(fstmovingitm.AverageSellingPrice)}</td>
-                   <td className={"px-4 py-2.5 text-right " + (fstmovingitm.StockQuantity <= 10 ? "text-red-500" : "text-green-500") + " text-xs"}>
+                  <td className={"px-4 py-2.5 text-right " + (fstmovingitm.StockQuantity <= 10 ? "text-red-500" : "text-green-500") + " text-xs"}>
                     {fstmovingitm.StockQuantity}
                   </td>
                 </tr>
               ))}
-              {txList.length === 0 && !loading && (
+              {fastMovingItems.length === 0 && !loading && (
                 <tr><td colSpan={9} className="text-center py-12 text-gray-400">No transactions in this range</td></tr>
               )}
             </tbody>
           </table>
+          {fastMovingItems.length > 0 && (
+            <div className="flex justify-end items-center gap-2 p-4 border-t">
+              <button
+                disabled={fastPage === 1}
+                onClick={() => setFastPage(p => p - 1)}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm">
+                Page {fastPage} of {fastTotalPages}
+              </span>
+
+              <button
+
+                disabled={fastPage === fastTotalPages}
+                onClick={() => setFastPage(p => p + 1)}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-       {/* Slow Moving Items */}
+      {/* Slow Moving Items */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <span className="font-semibold text-gray-800">Slow Moving Items</span>
@@ -362,16 +477,40 @@ export default function ReportsPage() {
                     }>{php(slwmovingitm.TotalSales)}</span>
                   </td>
                   <td className="px-4 py-2.5 text-gray-600 text-xs">{php(slwmovingitm.AverageSellingPrice)}</td>
-                   <td className={"px-4 py-2.5 text-right " + (slwmovingitm.StockQuantity <= 10 ? "text-red-500" : "text-green-500") + " text-xs"}>
+                  <td className={"px-4 py-2.5 text-right " + (slwmovingitm.StockQuantity <= 10 ? "text-red-500" : "text-green-500") + " text-xs"}>
                     {slwmovingitm.StockQuantity}
                   </td>
                 </tr>
               ))}
-              {txList.length === 0 && !loading && (
+              {slowMovingItems.length === 0 && !loading && (
                 <tr><td colSpan={9} className="text-center py-12 text-gray-400">No transactions in this range</td></tr>
               )}
             </tbody>
           </table>
+          {slowMovingItems.length > 0 && (
+            <div className="flex justify-end items-center gap-2 p-4 border-t">
+              <button
+                disabled={slowPage === 1}
+                onClick={() => setSlowPage(p => p - 1)}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm">
+                Page {slowPage} of {slowTotalPages}
+              </span>
+
+              <button
+
+                disabled={slowPage === slowTotalPages}
+                onClick={() => setSlowPage(p => p + 1)}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

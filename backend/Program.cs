@@ -3,8 +3,23 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using PharmacyApi.Data;
 using PharmacyApi.Services;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+
+    // REMOVE noisy ASP.NET logs
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
+
+    .WriteTo.Console()
+    .WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = null);
@@ -28,6 +43,7 @@ builder.Services.AddSwaggerGen(c =>
         }, Array.Empty<string>()
     }});
 });
+
 
 builder.Services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<IAuthService, AuthService>();

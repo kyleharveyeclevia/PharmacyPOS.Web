@@ -1,15 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import { productsApi } from '../services/api.js';
 import toast from 'react-hot-toast';
-import { Plus, Search, Pencil, PackageMinus, ToggleLeft, ToggleRight, RefreshCw, X, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Pencil, PackageMinus, ToggleLeft, ToggleRight, RefreshCw, X, AlertTriangle, ImportIcon, Import } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const php  = (n) => '₱' + (n ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
 const iCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none';
 const blank = () => ({
-  Id: 0, Barcode: '', Name: '', GenericName: '', Description: '',
+  Id: 0, Barcode: '', Name: '', BrandName: '', GenericName: '', Description: '', DosageStrength: '',
   Unit: 'tab', CategoryId: 0, SupplierId: null,
   CostPrice: 0, SellingPrice: 0, StockQuantity: 0, ReorderLevel: 10,
-  RequiresPrescription: false, IsActive: true, ExpiryDate: null
+  RequiresPrescription: false, IsActive: true, ExpiryDate: null, BatchNo: ''
 });
 
 function Field({ label, children }) {
@@ -37,6 +38,8 @@ export default function InventoryPage() {
   const [adjProduct, setAdjProduct] = useState(null);
   const [adjQty, setAdjQty]         = useState('');
   const [adjReason, setAdjReason]   = useState('');
+
+  const navigate = useNavigate();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,13 +75,13 @@ export default function InventoryPage() {
 
   const openEdit = (p) => {
     setForm({
-      Id: p.Id, Barcode: p.Barcode, Name: p.Name,
-      GenericName: p.GenericName, Description: p.Description,
+      Id: p.Id, Barcode: p.Barcode, BrandName: p.BrandName, Name: p.Name,
+      GenericName: p.GenericName, Description: p.Description, DosageStrength: p.DosageStrength,
       Unit: p.Unit, CategoryId: p.CategoryId, SupplierId: p.SupplierId,
       CostPrice: p.CostPrice, SellingPrice: p.SellingPrice,
       StockQuantity: p.StockQuantity, ReorderLevel: p.ReorderLevel,
       RequiresPrescription: p.RequiresPrescription, IsActive: p.IsActive,
-      ExpiryDate: p.ExpiryDate ? p.ExpiryDate.split('T')[0] : null
+      ExpiryDate: p.ExpiryDate ? p.ExpiryDate.split('T')[0] : null, BatchNo : p.BatchNo
     });
     setEditTitle('Edit Product');
     setEditing(true);
@@ -167,8 +170,13 @@ export default function InventoryPage() {
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
             <button onClick={openAdd}
-              className="flex items-center gap-1.5 bg-green-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition">
+              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition">
               <Plus size={16} /> Add Product
+            </button>
+             <button
+              onClick={() => navigate('/inventory/import')}
+              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-sm font-medium transition">
+              <Import size={16} /> Import Products
             </button>
           </div>
         </div>
@@ -200,8 +208,8 @@ export default function InventoryPage() {
                   <th className="px-4 py-3 text-left">Barcode</th>
                   <th className="px-4 py-3 text-left">Product</th>
                   <th className="px-4 py-3 text-left">Category</th>
-                  <th className="px-4 py-3 text-right">Cost</th>
-                  <th className="px-4 py-3 text-right">Price</th>
+                  <th className="px-4 py-3 text-right">List Cost</th>
+                  <th className="px-4 py-3 text-right">Selling Price</th>
                   <th className="px-4 py-3 text-center">Stock</th>
                   <th className="px-4 py-3 text-center">Rx</th>
                   <th className="px-4 py-3 text-center">Status</th>
@@ -285,8 +293,14 @@ export default function InventoryPage() {
             <Field label="Product Name *">
               <input value={form.Name} onChange={e => setF('Name', e.target.value)} className={iCls} />
             </Field>
+             <Field label="Brand Name">
+              <input value={form.BrandName} onChange={e => setF('BrandName', e.target.value)} className={iCls} />
+            </Field>
             <Field label="Generic Name">
               <input value={form.GenericName} onChange={e => setF('GenericName', e.target.value)} className={iCls} />
+            </Field>
+            <Field label="Dosage Strength">
+              <input value={form.DosageStrength} onChange={e => setF('DosageStrength', e.target.value)} className={iCls} />
             </Field>
             <Field label="Unit (tab, cap, btl, pcs…)">
               <input value={form.Unit} onChange={e => setF('Unit', e.target.value)} className={iCls} />
@@ -321,6 +335,9 @@ export default function InventoryPage() {
             </div>
             <Field label="Expiry Date">
               <input type="date" value={form.ExpiryDate ?? ''} onChange={e => setF('ExpiryDate', e.target.value || null)} className={iCls} />
+            </Field>
+             <Field label="Batch No.">
+              <input value={form.BatchNo} onChange={e => setF('BatchNo', e.target.value || null)} className={iCls} />
             </Field>
             <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
               <input type="checkbox" checked={form.RequiresPrescription} onChange={e => setF('RequiresPrescription', e.target.checked)} className="accent-red-600" />

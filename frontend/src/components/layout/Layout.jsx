@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { authApi, reportsApi } from '../../services/api.js';
 import toast from 'react-hot-toast';
-import { LayoutDashboard, ShoppingCart, Package, BarChart3, Users, Pill, LogOut, Printer, ChevronDown, X } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, BarChart3, Users, Pill, LogOut, Printer, ChevronDown, X, Layers, Truck} from 'lucide-react';
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard',   Icon: LayoutDashboard, roles: ['Admin','Pharmacist','Cashier'] },
@@ -11,6 +11,8 @@ const NAV = [
   { to: '/inventory', label: 'Inventory',   Icon: Package,         roles: ['Admin','Pharmacist'] },
   { to: '/reports',   label: 'Reports',     Icon: BarChart3,       roles: ['Admin','Pharmacist','Cashier'] },
   { to: '/users',     label: 'Users',       Icon: Users,           roles: ['Admin'] },
+  { to: '/categories', label: 'Categories', Icon: Layers,         roles: ['Admin','Pharmacist'] },
+  { to: '/suppliers', label: 'Suppliers',  Icon: Truck,         roles: ['Admin','Pharmacist'] },
 ];
 
 export default function Layout() {

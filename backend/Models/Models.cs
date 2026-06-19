@@ -15,6 +15,15 @@ namespace PharmacyApi.Models
     int BranchId
 );
 
+    public class PagedResult<T>
+    {
+        public List<T> Items { get; set; } = new();
+        public int TotalRecords { get; set; }
+        public int TotalPages { get; set; }
+        public int PageNumber { get; set; }
+        public int PageSize { get; set; }
+    }
+
     // ── USER ─────────────────────────────────────────────────────────────────
     public class UserDto
     {
@@ -52,8 +61,10 @@ namespace PharmacyApi.Models
         public int       Id                   { get; set; }
         public string    Barcode              { get; set; } = "";
         public string    Name                 { get; set; } = "";
+        public string    BrandName { get; set; } = "";
         public string    GenericName          { get; set; } = "";
         public string    Description          { get; set; } = "";
+        public string    DosageStrength { get; set; } = "";
         public string    Unit                 { get; set; } = "pcs";
         public int       CategoryId           { get; set; }
         public string    CategoryName         { get; set; } = "";
@@ -69,7 +80,36 @@ namespace PharmacyApi.Models
         public bool      IsLowStock           { get; set; }
         public bool      IsExpired            { get; set; }
         public bool      IsExpiringSoon       { get; set; }
+        public string BatchNo { get; set; } = "";
     }
+
+    public class ProductImportRequest
+    {
+        public IFormFile File { get; set; }
+    }
+
+    public class ProductImportResult
+    {
+        public int SuccessCount { get; set; }
+        public int FailedCount { get; set; }
+
+        public List<ImportSuccessItem> SuccessItems { get; set; } = new();
+        public List<ImportFailedItem> FailedItems { get; set; } = new();
+    }
+
+    public class ImportSuccessItem
+    {
+        public string Barcode { get; set; }
+        public string Name { get; set; }
+    }
+
+    public class ImportFailedItem
+    {
+        public string Barcode { get; set; }
+        public string Name { get; set; }
+        public string Error { get; set; }
+    }
+
     public class SaveProductRequest
     {
         public int       Id                   { get; set; }
@@ -87,12 +127,15 @@ namespace PharmacyApi.Models
         public bool      RequiresPrescription { get; set; }
         public bool      IsActive             { get; set; } = true;
         public DateTime? ExpiryDate           { get; set; }
+        public string DosageStrength          { get; set; } = "";
+        public string BrandName               { get; set; } = "";
+        public string BatchNo                   { get; set; } = "";
     }
     public record AdjustStockRequest(int Adjustment, string Reason);
 
     // ── LOOKUPS ───────────────────────────────────────────────────────────────
     public class CategoryDto { public int Id{get;set;} public string Name { get; set; } = ""; public string Description{get;set;}=""; }
-    public class SupplierDto  { public int Id{get;set;} public string Name { get; set; } = ""; public string Phone{get;set;}=""; }
+    public class SupplierDto { public int Id { get; set; } public string Name { get; set; } = ""; public string Phone { get; set; } = ""; public bool IsActive { get; set; } = false; }
     public class CustomerDto
     {
         public int     Id              { get; set; }
@@ -237,6 +280,7 @@ namespace PharmacyApi.Models
 
         public decimal AverageSellingPrice { get; set; }
         public int StockQuantity { get; set; }
+        public int TotalRecords { get; set; }
     }
     public class SessionSummaryDto
     {

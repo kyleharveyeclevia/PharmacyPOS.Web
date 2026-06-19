@@ -10,6 +10,9 @@ import ReportsPage from './pages/ReportsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
 import TerminalSetupPage from './pages/TerminalSetupPage.jsx';
 import TerminalGuard from './guards/TerminalGuard.jsx';
+import ImportProductsPage from './pages/ImportProductsPage.jsx';
+import CategoriesPage from './pages/CategoriesPage.jsx';
+import SuppliersPage from './pages/SuppliersPage.jsx';
 
 function ProtectedRoute({ children, roles }) {
   const { user, isLoggedIn } = useAuth();
@@ -46,6 +49,9 @@ export default function App() {
             <Route path="inventory" element={
               <ProtectedRoute children ={<InventoryPage />} roles={['Admin','Pharmacist']}></ProtectedRoute>
             } />
+            <Route path="categories" element={<CategoriesPage />} />
+            <Route path="suppliers" element={<SuppliersPage />} />
+            <Route path="/inventory/import" element={<ImportProductsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="users"   element={
               <ProtectedRoute roles={['Admin']}><UsersPage /></ProtectedRoute>

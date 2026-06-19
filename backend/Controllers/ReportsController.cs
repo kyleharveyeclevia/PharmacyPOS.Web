@@ -53,6 +53,36 @@ namespace PharmacyApi.Controllers
             => Ok(ApiResult<List<MovingItemsDto>>.Ok(
                 await _svc.GetSlowMovingItemsAsync(startDate ?? DateTime.Today, endDate ?? DateTime.Today)));
 
+        [HttpGet("getSlowMovingItemsWithOffset")]
+        public async Task<ActionResult<ApiResult<PagedResult<MovingItemsDto>>>> getSlowMovingItemsWithOffset(
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+        {
+            return Ok(ApiResult<PagedResult<MovingItemsDto>>.Ok(
+                await _svc.GetSlowMovingItemsWithOffsetAsync(
+                    startDate ?? DateTime.Today,
+                    endDate ?? DateTime.Today,
+                    pageNumber,
+                    pageSize)));
+        }
+
+        [HttpGet("getFastMovingItemsWithOffset")]
+        public async Task<ActionResult<ApiResult<PagedResult<MovingItemsDto>>>> getFastMovingItemsWithOffset(
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+        {
+            return Ok(ApiResult<PagedResult<MovingItemsDto>>.Ok(
+                await _svc.GetFastMovingItemsWithOffsetAsync(
+                    startDate ?? DateTime.Today,
+                    endDate ?? DateTime.Today,
+                    pageNumber,
+                    pageSize)));
+        }
+
         [HttpGet("sessions")]
         public async Task<ActionResult<ApiResult<List<SessionSummaryDto>>>> Sessions([FromQuery] DateTime? date)
             => Ok(ApiResult<List<SessionSummaryDto>>.Ok(await _svc.GetSessionsAsync(date ?? DateTime.Today)));

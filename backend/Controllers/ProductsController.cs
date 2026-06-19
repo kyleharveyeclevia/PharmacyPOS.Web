@@ -79,6 +79,26 @@ namespace PharmacyApi.Controllers
             return Ok(ApiResult.Ok(msg));
         }
 
+        [HttpPost("import")]
+        [Authorize(Roles = "Admin,Pharmacist")]
+        public async Task<ActionResult<ApiResult<ProductImportResult>>> ImportProducts([FromForm] ProductImportRequest request)
+        {
+            if (request == null)
+                return BadRequest(ApiResult<ProductImportResult>.Fail("Import request is required."));
+
+            if (request.File == null || request.File.Length == 0)
+                return BadRequest(ApiResult<ProductImportResult>.Fail("Please select a file to import."));
+
+            var result = await _svc.ImportProductsAsync(
+                request.File,
+                User.GetUserId());
+
+            return Ok(ApiResult<ProductImportResult>.Ok(
+                result,
+                $"Import completed. {result.SuccessCount} succeeded, {result.FailedCount} failed."
+            ));
+        }
+
         [HttpGet("categories")] public async Task<ActionResult<ApiResult<List<CategoryDto>>>> Categories()
             => Ok(ApiResult<List<CategoryDto>>.Ok(await _svc.GetCategoriesAsync()));
         [HttpGet("suppliers")]  public async Task<ActionResult<ApiResult<List<SupplierDto>>>> Suppliers()

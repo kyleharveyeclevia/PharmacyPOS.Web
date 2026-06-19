@@ -30,11 +30,14 @@ namespace PharmacyApi.Services
         Task<SalesSummaryDto>       GetSalesSummaryAsync(DateTime start, DateTime end);
         Task<List<MovingItemsDto>>  GetFastMovingItemsAsync(DateTime start, DateTime end);
         Task<List<MovingItemsDto>>  GetSlowMovingItemsAsync(DateTime start, DateTime end);
+        Task<PagedResult<MovingItemsDto>> GetSlowMovingItemsWithOffsetAsync(DateTime start, DateTime end, int pageNumber, int pageSize);
+        Task<PagedResult<MovingItemsDto>> GetFastMovingItemsWithOffsetAsync(DateTime start, DateTime end, int pageNumber, int pageSize);
         Task<List<SessionSummaryDto>> GetSessionsAsync(DateTime date);
         Task<List<UserDto>>         GetUsersAsync();
         Task<(bool ok, string msg)> CreateUserAsync(CreateUserRequest req);
         Task<(bool ok, string msg)> UpdateUserAsync(int id, UpdateUserRequest req);
         Task<(bool ok, string msg)> ToggleUserAsync(int id, int currentUserId);
+        Task<ProductImportResult> ImportProductsAsync(IFormFile file,int userId);
     }
 
     public class PharmacyService : IPharmacyService
@@ -43,15 +46,23 @@ namespace PharmacyApi.Services
         private static readonly JsonSerializerOptions _json = new() { PropertyNamingPolicy = null };
         private static int _receiptCounter = 1;
         private static readonly object _lock = new();
+        private readonly ILogger<PharmacyService> _logger;
         private string NextReceipt() { lock (_lock) return $"RCP-{DateTime.Now:yyyyMMdd}-{_receiptCounter++:D4}"; }
 
-        public PharmacyService(IDbConnectionFactory db) => _db = db;
+        public PharmacyService(IDbConnectionFactory db, ILogger<PharmacyService> logger)
+        {
+            _db = db;
+            _logger = logger;
+        }
 
         // ── PRODUCTS ─────────────────────────────────────────────────────────
         public async Task<List<ProductDto>> GetAllProductsAsync()
         {
             using var c = _db.Create();
-            return (await c.QueryAsync<ProductDto>("sp_GetAllProducts", commandType: CommandType.StoredProcedure)).ToList();
+
+            var result = (await c.QueryAsync<ProductDto>("sp_GetAllProducts", commandType: CommandType.StoredProcedure)).ToList();
+            
+            return result;
         }
         public async Task<List<ProductDto>> SearchProductsAsync(string query)
         {
@@ -70,22 +81,215 @@ namespace PharmacyApi.Services
         }
         public async Task<(bool ok, string msg, int id)> SaveProductAsync(SaveProductRequest req, bool isNew)
         {
-            using var c = _db.Create();
-            SpResult r;
-            if (isNew)
-                r = await c.QueryFirstAsync<SpResult>("sp_AddProduct", new {
-                    req.Barcode, req.Name, req.GenericName, req.Description, req.Unit,
-                    req.CategoryId, req.SupplierId, req.CostPrice, req.SellingPrice,
-                    req.StockQuantity, req.ReorderLevel, req.RequiresPrescription, req.ExpiryDate
-                }, commandType: CommandType.StoredProcedure);
-            else
-                r = await c.QueryFirstAsync<SpResult>("sp_UpdateProduct", new {
-                    req.Id, req.Barcode, req.Name, req.GenericName, req.Description, req.Unit,
-                    req.CategoryId, req.SupplierId, req.CostPrice, req.SellingPrice,
-                    req.ReorderLevel, req.RequiresPrescription, req.IsActive, req.ExpiryDate
-                }, commandType: CommandType.StoredProcedure);
+            string action = isNew ? "Add Product" : "Edit Product";
+
+            _logger.LogInformation($"[SaveProductAsync] {action} started...");
+
+            SpResult r = new SpResult { Result = -1, Message="No Actions"};
+           
+            try
+            {
+                using var c = _db.Create();
+
+                if (isNew)
+                    r = await c.QueryFirstAsync<SpResult>("sp_AddProduct", new
+                    {
+                        req.Barcode,
+                        req.Name,
+                        req.BrandName,
+                        req.GenericName,
+                        req.Description,
+                        req.DosageStrength,
+                        req.Unit,
+                        req.CategoryId,
+                        req.SupplierId,
+                        req.CostPrice,
+                        req.SellingPrice,
+                        req.StockQuantity,
+                        req.ReorderLevel,
+                        req.RequiresPrescription,
+                        req.ExpiryDate,
+                        req.BatchNo
+                    }, commandType: CommandType.StoredProcedure);
+                else
+                    r = await c.QueryFirstAsync<SpResult>("sp_UpdateProduct", new
+                    {
+                        req.Id,
+                        req.Barcode,
+                        req.Name,
+                        req.BrandName,
+                        req.GenericName,
+                        req.Description,
+                        req.DosageStrength,
+                        req.Unit,
+                        req.CategoryId,
+                        req.SupplierId,
+                        req.CostPrice,
+                        req.SellingPrice,
+                        req.ReorderLevel,
+                        req.RequiresPrescription,
+                        req.IsActive,
+                        req.ExpiryDate,
+                        req.BatchNo
+                    }, commandType: CommandType.StoredProcedure);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"[SaveProductAsync] {action} started...");
+            }
+            
+
             return (r.Result > 0, r.Message, r.Result > 0 ? r.Result : 0);
         }
+
+        public async Task<ProductImportResult> ImportProductsAsync(IFormFile file,int userId)
+        {
+            _logger.LogInformation("[ImportProductsAsync] Import Products Started");
+
+            using var c = _db.Create();
+
+            var result = new ProductImportResult();
+
+            List<ProductDto> rows = await ParseCsvAsync(file);
+
+            var categories = await GetCategoriesAsync();
+
+            var suppliers = await GetSuppliersAsync();
+
+            try
+            {
+                // Parse file
+
+                foreach (var row in rows)
+                {
+                    try
+                    {
+                        // Validation
+                        if (string.IsNullOrWhiteSpace(row.Barcode))
+                        {
+                            result.FailedItems.Add(new ImportFailedItem
+                            {
+                                Barcode = row.Barcode,
+                                Name = row.Name,
+                                Error = "Barcode is required."
+                            });
+
+                            continue;
+                        }
+
+                        if(!categories.Any(category => category.Name == row.CategoryName))
+                        {
+                            result.FailedItems.Add(new ImportFailedItem
+                            {
+                                Barcode = row.Barcode,
+                                Name = row.Name,
+                                Error = $"Category {row.CategoryName} does not exists"
+                            });
+
+                            continue;
+                        }
+
+                        if(!string.IsNullOrEmpty(row.SupplierName))
+                        {
+                            if (!suppliers.Any(supplier => supplier.Name == row.SupplierName))
+                            {
+                                result.FailedItems.Add(new ImportFailedItem
+                                {
+                                    Barcode = row.Barcode,
+                                    Name = row.Name,
+                                    Error = $"Supplier {row.SupplierName} does not exists"
+                                });
+
+                                continue;
+                            }
+                        }
+
+                        row.CategoryId = categories.First(c => c.Name == row.CategoryName).Id;
+
+                        row.SupplierId = suppliers.First(c => c.Name == row.SupplierName).Id;
+                            
+
+                        // Save product
+                        SpResult r = await c.QueryFirstAsync<SpResult>("sp_AddProduct", new
+                        {
+                            row.Barcode,
+                            row.Name,
+                            row.BrandName,
+                            row.GenericName,
+                            row.Description,
+                            row.DosageStrength,
+                            row.Unit,
+                            row.CategoryId,
+                            row.SupplierId,
+                            row.CostPrice,
+                            row.SellingPrice,
+                            row.StockQuantity,
+                            row.ReorderLevel,
+                            row.RequiresPrescription,
+                            row.ExpiryDate,
+                            row.BatchNo
+                        }, commandType: CommandType.StoredProcedure);
+
+                        if(r.Result > 0)
+                        {
+                            result.SuccessItems.Add(new ImportSuccessItem
+                            {
+                                Barcode = row.Barcode,
+                                Name = row.Name
+                            });
+                        }
+
+                        else
+                        {
+                            result.FailedItems.Add(new ImportFailedItem
+                            {
+                                Barcode = row.Barcode,
+                                Name = row.Name,
+                                Error = r.Message
+                            });
+
+                            _logger.LogError($"[ImportProductsAsync] Import Products Failed 1: {r.Message}");
+                        }
+
+                       
+                    }
+                    catch (Exception ex)
+                    {
+                        result.FailedItems.Add(new ImportFailedItem
+                        {
+                            Barcode = row.Barcode,
+                            Name = row.Name,
+                            Error = ex.Message
+                        });
+
+                        _logger.LogInformation($"[ImportProductsAsync] Import Products Failed 2: {ex.Message}");
+                    }
+                }
+
+                result.SuccessCount = result.SuccessItems.Count;
+                result.FailedCount = result.FailedItems.Count;
+
+                return result;
+            }
+
+            catch (Exception ex)
+            {
+                _logger.LogInformation($"[ImportProductsAsync] Import Products Failed 3: {ex.Message}");
+
+                result.FailedItems.Add(new ImportFailedItem
+                {
+                    Barcode = string.Empty,
+                    Name = string.Empty,
+                    Error = ex.Message
+                });
+
+                result.SuccessCount = 0;
+                result.FailedCount = 1;
+
+                return result;
+            }
+        }
+
         public async Task<(bool ok, string msg)> AdjustStockAsync(int productId, int userId, int adjustment, string reason)
         {
             using var c = _db.Create();
@@ -268,6 +472,64 @@ namespace PharmacyApi.Services
                 new { StartDate = start.Date, EndDate = end.Date }, commandType: CommandType.StoredProcedure)).ToList();
         }
 
+        public async Task<PagedResult<MovingItemsDto>> GetSlowMovingItemsWithOffsetAsync(DateTime start,DateTime end,int pageNumber,int pageSize)
+        {
+            using var c = _db.Create();
+
+            var items = (await c.QueryAsync<MovingItemsDto>(
+                "sp_GetSlowMovingItemsByDateRangeWithOffset",
+                new
+                {
+                    StartDate = start.Date,
+                    EndDate = end.Date,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                },
+                commandType: CommandType.StoredProcedure))
+                .ToList();
+            var pageResult = new PagedResult<MovingItemsDto>
+            {
+                Items = items,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+
+                // Temporary until total count is added
+                TotalRecords = items.Count == 0 ? 0 : items[0].TotalRecords,
+                TotalPages = 1
+            };
+
+            return pageResult;
+        }
+
+        public async Task<PagedResult<MovingItemsDto>> GetFastMovingItemsWithOffsetAsync(DateTime start, DateTime end, int pageNumber, int pageSize)
+        {
+            using var c = _db.Create();
+
+            var items = (await c.QueryAsync<MovingItemsDto>(
+                "sp_GetFastMovingItemsByDateRangeWithOffset",
+                new
+                {
+                    StartDate = start.Date,
+                    EndDate = end.Date,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize
+                },
+                commandType: CommandType.StoredProcedure))
+                .ToList();
+            var pageResult = new PagedResult<MovingItemsDto>
+            {
+                Items = items,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+
+                // Temporary until total count is added
+                TotalRecords = items.Count == 0 ? 0 : items[0].TotalRecords,
+                TotalPages = 1
+            };
+
+            return pageResult;
+        }
+
         public async Task<List<SessionSummaryDto>> GetSessionsAsync(DateTime date)
         {
             using var c = _db.Create();
@@ -305,6 +567,85 @@ namespace PharmacyApi.Services
             var r = await c.QueryFirstAsync<SpResult>("sp_ToggleUserStatus",
                 new { UserId=id, CurrentUserId=currentUserId }, commandType: CommandType.StoredProcedure);
             return (r.Result >= 0, r.Message);
+        }
+
+        private async Task<List<ProductDto>> ParseCsvAsync(IFormFile file)
+        {
+            var products = new List<ProductDto>();
+
+            using var stream = file.OpenReadStream();
+            using var reader = new StreamReader(stream);
+
+            // Read header
+            var header = await reader.ReadLineAsync();
+
+            if (string.IsNullOrWhiteSpace(header))
+                return products;
+
+            while (!reader.EndOfStream)
+            {
+                var line = await reader.ReadLineAsync();
+
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                var cols = line.Split(',');
+
+                // Expected CSV order:
+                // 0 Barcode
+                // 1 Name
+                // 2 BrandName
+                // 3 GenericName
+                // 4 Description
+                // 5 DosageStrength
+                // 6 Unit
+                // 7 Category Name
+                // 8 Supplier Name
+                // 9 CostPrice
+                // 10 SellingPrice
+                // 11 StockQuantity
+                // 12 ReorderLevel
+                // 13 RequiresPrescription
+                // 14 ExpiryDate
+                // 15 BatchNo
+
+                var product = new ProductDto
+                {
+                    Id = 0,
+                    Barcode = cols.ElementAtOrDefault(0) ?? "",
+                    Name = cols.ElementAtOrDefault(1) ?? "",
+                    BrandName = cols.ElementAtOrDefault(2) ?? "",
+                    GenericName = cols.ElementAtOrDefault(3) ?? "",
+                    Description = cols.ElementAtOrDefault(4) ?? "",
+                    DosageStrength = cols.ElementAtOrDefault(5) ?? "",
+                    Unit = cols.ElementAtOrDefault(6) ?? "pcs",
+
+                    //CategoryId = int.TryParse(cols.ElementAtOrDefault(7), out var catId) ? catId : 0,
+                    //SupplierId = int.TryParse(cols.ElementAtOrDefault(8), out var supId) ? supId : null,
+                    CategoryName = cols.ElementAtOrDefault(7) ?? "",
+                    SupplierName = cols.ElementAtOrDefault(8),
+
+                    CostPrice = decimal.TryParse(cols.ElementAtOrDefault(9), out var cost) ? cost : 0,
+                    SellingPrice = decimal.TryParse(cols.ElementAtOrDefault(10), out var sell) ? sell : 0,
+
+                    StockQuantity = int.TryParse(cols.ElementAtOrDefault(11), out var qty) ? qty : 0,
+                    ReorderLevel = int.TryParse(cols.ElementAtOrDefault(12), out var reorder) ? reorder : 10,
+
+                    RequiresPrescription = bool.TryParse(cols.ElementAtOrDefault(13), out var rx) && rx,
+
+                    ExpiryDate = DateTime.TryParse(cols.ElementAtOrDefault(14), out var exp)
+                        ? exp
+                        : null,
+
+                    BatchNo = cols.ElementAtOrDefault(15) ?? "",
+
+                    IsActive = true
+                };
+
+                products.Add(product);
+            }
+
+            return products;
         }
 
         // ── PRIVATE TYPED RESULT ROWS ─────────────────────────────────────────
