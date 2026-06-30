@@ -99,10 +99,6 @@ namespace PharmacyApi.Controllers
             ));
         }
 
-        [HttpGet("categories")] public async Task<ActionResult<ApiResult<List<CategoryDto>>>> Categories()
-            => Ok(ApiResult<List<CategoryDto>>.Ok(await _svc.GetCategoriesAsync()));
-        [HttpGet("suppliers")]  public async Task<ActionResult<ApiResult<List<SupplierDto>>>> Suppliers()
-            => Ok(ApiResult<List<SupplierDto>>.Ok(await _svc.GetSuppliersAsync()));
         [HttpGet("customers")]  public async Task<ActionResult<ApiResult<List<CustomerDto>>>> Customers()
             => Ok(ApiResult<List<CustomerDto>>.Ok(await _svc.GetCustomersAsync()));
     }

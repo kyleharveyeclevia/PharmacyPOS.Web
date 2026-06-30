@@ -167,6 +167,8 @@ namespace PharmacyApi.Models
         public bool              IsScPwd            { get; set; }
         public string?           PrescriptionNumber { get; set; }
         public string?           Notes              { get; set; }
+        public int               TerminalId         { get; set; }
+        public decimal           VatExemptAmount    { get; set; }
     }
     public record VoidRequest(string Reason);
     public class ReturnRequest
@@ -232,6 +234,7 @@ namespace PharmacyApi.Models
         public decimal  RefundAmount      { get; set; }
         public decimal  VoidAmount        { get; set; }
         public int      ItemsSold         { get; set; }
+        public List<TransactionItemDto> TransactionItems { get; set; } = new();
     }
     public class ZReadDto : XReadDto
     {

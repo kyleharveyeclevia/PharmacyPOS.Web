@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { productsApi } from '../services/api.js';
+import { categoriesApi } from '../services/api.js';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, X, Layers } from 'lucide-react';
 
@@ -29,7 +29,7 @@ export default function CategoriesPage() {
 
   const load = async () => {
     try {
-      const { data } = await productsApi.categories();
+      const { data } = await categoriesApi.getAll();
       if (data.Success) setCategories(data.Data);
     } catch {
       toast.error('Failed to load categories.');
@@ -106,7 +106,6 @@ export default function CategoriesPage() {
 
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
               <tr>
-                <th className="px-5 py-3 text-left">Id</th>
                 <th className="px-5 py-3 text-left">Name</th>
                 <th className="px-5 py-3 text-left">Description</th>
                 <th className="px-5 py-3 text-center">Actions</th>
@@ -116,11 +115,6 @@ export default function CategoriesPage() {
             <tbody className="divide-y divide-gray-100">
               {categories.map(c => (
                 <tr key={c.Id} className="hover:bg-gray-50 transition">
-
-                  <td className="px-5 py-3 font-medium text-gray-800 items-center gap-2">
-                   
-                    {c.Id}
-                  </td>
 
                   <td className="px-5 py-3 font-medium text-gray-800 flex items-center gap-2">
                     <Layers size={14} className="text-blue-600" />

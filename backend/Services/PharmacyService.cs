@@ -15,7 +15,6 @@ namespace PharmacyApi.Services
         Task<(bool ok, string msg, int id)> SaveProductAsync(SaveProductRequest req, bool isNew);
         Task<(bool ok, string msg)>         AdjustStockAsync(int productId, int userId, int adjustment, string reason);
         Task<(bool ok, string msg)>         ToggleProductAsync(SaveProductRequest req);
-        Task<List<CategoryDto>> GetCategoriesAsync();
         Task<List<SupplierDto>> GetSuppliersAsync();
         Task<List<CustomerDto>> GetCustomersAsync();
         Task<(bool ok, string msg, int txId, string receipt)> ProcessSaleAsync(ProcessSaleRequest req, int userId, int sessionId);
@@ -38,6 +37,11 @@ namespace PharmacyApi.Services
         Task<(bool ok, string msg)> UpdateUserAsync(int id, UpdateUserRequest req);
         Task<(bool ok, string msg)> ToggleUserAsync(int id, int currentUserId);
         Task<ProductImportResult> ImportProductsAsync(IFormFile file,int userId);
+
+        #region Categories
+        Task<List<CategoryDto>> GetCategoriesAsync();
+        Task<(bool ok, string msg, int id)> SaveCategoryAsync(CategoryDto category, bool isNew);
+        #endregion
     }
 
     public class PharmacyService : IPharmacyService
@@ -311,9 +315,44 @@ namespace PharmacyApi.Services
             return (r.Result > 0, r.Message);
         }
 
-        // ── LOOKUPS ───────────────────────────────────────────────────────────
+        #region Categories
         public async Task<List<CategoryDto>> GetCategoriesAsync()
-        { using var c=_db.Create(); return (await c.QueryAsync<CategoryDto>("sp_GetCategories", commandType: CommandType.StoredProcedure)).ToList(); }
+        { using var c = _db.Create(); return (await c.QueryAsync<CategoryDto>("sp_GetCategories", commandType: CommandType.StoredProcedure)).ToList(); }
+
+        public async Task<(bool ok, string msg, int id)> SaveCategoryAsync(CategoryDto req, bool isNew)
+        { 
+            using var c = _db.Create();
+
+            if (isNew)
+            {
+                var r = await c.QueryFirstAsync<SpResult>("sp_SaveCategory", new
+                {
+                    req.Name,
+                    req.Description,
+                }, commandType: CommandType.StoredProcedure);
+
+                return (r.Result > 0, r.Message, r.Result > 0 ? r.Result : 0);
+            }
+
+            else
+            {
+                var r = await c.QueryFirstAsync<SpResult>("sp_UpdateCategory", new
+                {
+                    req.Id,
+                    req.Name,
+                    req.Description,
+                }, commandType: CommandType.StoredProcedure);
+
+                return (r.Result > 0, r.Message, r.Result > 0 ? r.Result : 0);
+            }
+           
+
+            
+        }
+        #endregion
+
+        // ── LOOKUPS ───────────────────────────────────────────────────────────
+
         public async Task<List<SupplierDto>> GetSuppliersAsync()
         { using var c=_db.Create(); return (await c.QueryAsync<SupplierDto>("sp_GetSuppliers", commandType: CommandType.StoredProcedure)).ToList(); }
         public async Task<List<CustomerDto>> GetCustomersAsync()
@@ -352,7 +391,7 @@ namespace PharmacyApi.Services
                 AmountTendered=req.AmountTendered, 
                 Change=change,
                 PaymentMethod=req.PaymentMethod, PrescriptionNumber=req.PrescriptionNumber,
-                Notes=req.Notes, ItemsJson=json
+                Notes=req.Notes, ItemsJson=json, TerminalId = req.TerminalId, VatExemptAmount = req.VatExemptAmount
             }, commandType: CommandType.StoredProcedure);
             return (r.TransactionId > 0, r.Message, r.TransactionId, receipt);
         }
@@ -405,15 +444,31 @@ namespace PharmacyApi.Services
             var sess = await m.ReadFirstAsync<XReadSession>();
             var sum  = await m.ReadFirstAsync<XReadSummary>();
             var itm  = await m.ReadFirstAsync<XReadItems>();
-            return new XReadDto {
-                SessionId=sess.SessionId, Cashier=sess.CashierName, Terminal=sess.Terminal,
-                GeneratedAt=DateTime.Now, SessionStart=sess.LoginTime,
-                TotalTransactions=sum.TotalTransactions, GrossSales=sum.GrossSales,
-                TotalDiscount=sum.TotalDiscount, TotalVat=sum.TotalVat, NetSales=sum.NetSales,
-                CashSales=sum.CashSales, CardSales=sum.CardSales, GCashSales=sum.GCashSales,
-                PhilHealthSales=sum.PhilHealthSales, RefundAmount=sum.RefundAmount,
-                VoidAmount=sum.VoidAmount, ItemsSold=itm.ItemsSold
+            var txnItems = (await m.ReadAsync<TransactionItemDto>()).ToList();
+
+            var result = new XReadDto
+            {
+                SessionId = sess.SessionId,
+                Cashier = sess.CashierName,
+                Terminal = sess.Terminal,
+                GeneratedAt = DateTime.Now,
+                SessionStart = sess.LoginTime,
+                TotalTransactions = sum.TotalTransactions,
+                GrossSales = sum.GrossSales,
+                TotalDiscount = sum.TotalDiscount,
+                TotalVat = sum.TotalVat,
+                NetSales = sum.NetSales,
+                CashSales = sum.CashSales,
+                CardSales = sum.CardSales,
+                GCashSales = sum.GCashSales,
+                PhilHealthSales = sum.PhilHealthSales,
+                RefundAmount = sum.RefundAmount,
+                VoidAmount = sum.VoidAmount,
+                ItemsSold = itm.ItemsSold,
+                TransactionItems = txnItems
             };
+
+            return result;
         }
         public async Task<ZReadDto> GenerateZReadAsync(int sessionId, decimal closingCash)
         {

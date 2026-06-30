@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { productsApi } from '../services/api.js';
+import { suppliersApi } from '../services/api.js';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, ToggleLeft, ToggleRight, X, Truck } from 'lucide-react';
 
@@ -33,7 +33,7 @@ export default function SuppliersPage() {
 
   const load = async () => {
     try {
-      const { data } = await productsApi.suppliers();
+      const { data } = await suppliersApi.getAll();
       if (data.Success) setSuppliers(data.Data);
     } catch {
       toast.error('Failed to load suppliers.');
@@ -129,7 +129,6 @@ export default function SuppliersPage() {
 
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
               <tr>
-                <th className="px-5 py-3 text-left">Id</th>
                 <th className="px-5 py-3 text-left">Name</th>
                 <th className="px-5 py-3 text-left">Contact</th>
                 <th className="px-5 py-3 text-left">Phone</th>
@@ -143,7 +142,6 @@ export default function SuppliersPage() {
               {suppliers.map(s => (
                 <tr key={s.Id} className="hover:bg-gray-50 transition">
 
-                  <td className="px-5 py-3 text-gray-600">{s.Id}</td>
 
                   <td className="px-5 py-3 font-medium text-gray-800 flex items-center gap-2">
                     <Truck size={14} className="text-orange-600" />

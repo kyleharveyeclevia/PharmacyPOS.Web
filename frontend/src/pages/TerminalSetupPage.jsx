@@ -28,8 +28,10 @@ const handleSubmit = async (e) => {
       return;
     }
     console.log('success');
+    
     localStorage.setItem('terminalGuid', data.Data.TerminalGuid);
-
+    localStorage.setItem('terminalId', data.Data.TerminalId);
+    
     toast.success('Terminal activated successfully!');
     navigate('/login');
   } catch (err) {

@@ -12,8 +12,11 @@ api.interceptors.response.use(
   res => res,
   err => {
     if (err.response?.status === 401) {
-      localStorage.clear();
-      window.location.href = '/login';
+       localStorage.removeItem('user');
+       localStorage.removeItem('token');
+       localStorage.removeItem('sessionId'); // if you store it separately
+     
+       window.location.href = '/login';
     }
     return Promise.reject(err);
   }
@@ -39,10 +42,21 @@ export const productsApi = {
       'Content-Type': 'multipart/form-data'
     }
   }),
-  categories: () => api.get('/products/categories'),
-  suppliers: () => api.get('/products/suppliers'),
+ 
   customers: () => api.get('/products/customers'),
 };
+
+export const categoriesApi = {
+   getAll: () => api.get('/categories'),
+   create: (body) => api.post('/categories', body),
+   update: (id, body) => api.put('/categories/' + id, body),
+}
+
+export const suppliersApi = {
+   getAll: () => api.get('/suppliers'),
+   create: (body) => api.post('/suppliers', body),
+   update: (id, body) => api.put('/suppliers/' + id, body),
+}
 
 export const transactionsApi = {
   sale: (body) => api.post('/transactions/sale', body),

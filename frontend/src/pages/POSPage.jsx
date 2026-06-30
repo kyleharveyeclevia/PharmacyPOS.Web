@@ -4,23 +4,24 @@ import toast from 'react-hot-toast';
 import { Search, X, Plus, Minus, Trash2, CheckCircle, ShoppingCart, Printer } from 'lucide-react';
 
 const php = (n) => '₱' + (n ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+const toDecimal = (n, d) => (n ?? 0).toLocaleString('en-PH', { minimumFractionDigits: d });
 const PAYMENTS = ['Cash', 'Card', 'GCash'];
-const QUICK    = [20, 50, 100, 200, 500, 1000];
+const QUICK = [20, 50, 100, 200, 500, 1000];
 
 export default function POSPage() {
-  const [cart, setCart]                     = useState([]);
-  const [search, setSearch]                 = useState('');
-  const [results, setResults]               = useState([]);
-  const [customers, setCustomers]           = useState([]);
-  const [customerId, setCustomerId]         = useState(null);
-  const [isScPwd, setIsScPwd]               = useState(false);
-  const [discPct, setDiscPct]               = useState(0);
-  const [payment, setPayment]               = useState('Cash');
-  const [tendered, setTendered]             = useState(0);
-  const [rxNo, setRxNo]                     = useState('');
-  const [processing, setProcessing]         = useState(false);
-  const [lastReceipt, setLastReceipt]       = useState('');
-  const searchRef    = useRef(null);
+  const [cart, setCart] = useState([]);
+  const [search, setSearch] = useState('');
+  const [results, setResults] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [customerId, setCustomerId] = useState(null);
+  const [isScPwd, setIsScPwd] = useState(false);
+  const [discPct, setDiscPct] = useState(0);
+  const [payment, setPayment] = useState('Cash');
+  const [tendered, setTendered] = useState(0);
+  const [rxNo, setRxNo] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [lastReceipt, setLastReceipt] = useState('');
+  const searchRef = useRef(null);
   const processSaleRef = useRef(null);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function POSPage() {
   useEffect(() => {
     if (search.length < 2) { setResults([]); return; }
     const t = setTimeout(async () => {
-      try { const { data } = await productsApi.search(search); if (data.Success) setResults(data.Data); } catch {}
+      try { const { data } = await productsApi.search(search); if (data.Success) setResults(data.Data); } catch { }
     }, 200);
     return () => clearTimeout(t);
   }, [search]);
@@ -69,9 +70,11 @@ export default function POSPage() {
         return prev.map(c => c.ProductId === p.Id
           ? { ...c, Quantity: c.Quantity + 1, LineTotal: (c.Quantity + 1) * c.UnitPrice } : c);
       }
-      return [...prev, { ProductId: p.Id, ProductName: p.Name, Barcode: p.Barcode,
+      return [...prev, {
+        ProductId: p.Id, ProductName: p.Name, Barcode: p.Barcode,
         Quantity: 1, UnitPrice: p.SellingPrice, LineTotal: p.SellingPrice,
-        RequiresPrescription: p.RequiresPrescription }];
+        RequiresPrescription: p.RequiresPrescription
+      }];
     });
     setSearch(''); setResults([]);
   }, []);
@@ -82,17 +85,32 @@ export default function POSPage() {
       : c).filter(c => c.Quantity > 0));
 
   const removeItem = (id) => setCart(prev => prev.filter(c => c.ProductId !== id));
-  const clearCart  = () => { if (!cart.length) return; if (!window.confirm('Clear all items?')) return; setCart([]); };
+  const clearCart = () => { if (!cart.length) return; if (!window.confirm('Clear all items?')) return; setCart([]); };
 
   // ── Totals: SC/PWD = RA 9994/RA 9442 (20% on VAT-exclusive, VAT-exempt) ──
   const sub = cart.reduce((s, i) => s + i.LineTotal, 0);
-  const { disc, vat, total } = (() => {
+  const { disc, vat, vatExemptAmount, total } = (() => {
     if (isScPwd) {
-      const x = sub / 1.12;
-      return { disc: x * 0.20, vat: 0, total: x * 0.80 };
+
+      const vatExclusive = sub / 1.12;
+      const removedVat = sub - vatExclusive;
+
+      return {
+        disc: vatExclusive * 0.20,
+        vat: 0,
+        vatExemptAmount: removedVat,
+        total: vatExclusive * 0.80
+      };
     }
+
     const d = sub * (discPct / 100);
-    return { disc: d, vat: (sub - d) / 1.12 * 0.12, total: sub - d };
+
+    return {
+      disc: d,
+      vat: ((sub - d) / 1.12) * 0.12,
+      vatExemptAmount: 0,
+      total: sub - d
+    };
   })();
   const change = tendered - total;
 
@@ -102,12 +120,14 @@ export default function POSPage() {
       if (!window.confirm('Cart has Rx items. Continue without prescription number?')) return;
     if (tendered < total) { toast.error('Insufficient payment. Need: ' + php(total)); return; }
 
+    let terminalId = localStorage.getItem('terminalId');
+
     setProcessing(true);
     try {
       const { data } = await transactionsApi.sale({
         Items: cart, CustomerId: customerId, PaymentMethod: payment,
-        AmountTendered: tendered, DiscountPercent: discPct,
-        IsScPwd: isScPwd, PrescriptionNumber: rxNo || null, Notes: null
+        AmountTendered: tendered, DiscountPercent: discPct, VatExemptAmount: vatExemptAmount,
+        IsScPwd: isScPwd, PrescriptionNumber: rxNo || null, Notes: null, TerminalId: terminalId
       });
       if (!data.Success) { toast.error(data.Message); return; }
       setLastReceipt(data.Data.receiptNumber);
@@ -318,9 +338,9 @@ export default function POSPage() {
             <div className="flex gap-2 items-stretch">
               <input type="number" min={0} step={0.01} value={tendered || ''}
                 onChange={e => setTendered(Number(e.target.value))}
-                 className="w-full min-w-0 flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xl font-bold text-right tabular-nums focus:ring-2 focus:ring-green-500 outline-none"
+                className="w-full min-w-0 flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xl font-bold text-right tabular-nums focus:ring-2 focus:ring-green-500 outline-none"
                 placeholder="0.00" />
-              <button onClick={() => setTendered(total)}
+              <button onClick={() => setTendered(toDecimal(total,2))}
                 className="bg-teal-600 hover:bg-teal-700 text-white px-1 rounded-lg text-xs font-bold transition">
                 EXACT
               </button>

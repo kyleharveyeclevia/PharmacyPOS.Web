@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { productsApi } from '../services/api.js';
+import { productsApi, categoriesApi, suppliersApi } from '../services/api.js';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, PackageMinus, ToggleLeft, ToggleRight, RefreshCw, X, AlertTriangle, ImportIcon, Import } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -45,12 +45,19 @@ export default function InventoryPage() {
     setLoading(true);
     try {
       const [pRes, cRes, sRes] = await Promise.all([
-        productsApi.getAll(), productsApi.categories(), productsApi.suppliers()
+        productsApi.getAll(), 
+        categoriesApi.getAll(), 
+        suppliersApi.getAll()
       ]);
       if (pRes.data.Success) setProducts(pRes.data.Data);
       if (cRes.data.Success) setCategories(cRes.data.Data);
       if (sRes.data.Success) setSuppliers(sRes.data.Data);
-    } catch { toast.error('Failed to load inventory.'); }
+    } 
+    catch (ex) 
+    { 
+      console.log(ex);
+      toast.error('Failed to load inventory.'); 
+    }
     finally { setLoading(false); }
   }, []);
 
