@@ -4,7 +4,7 @@ namespace PharmacyApi.Models
     public record LoginRequest(string Username, string Password, Guid TerminalGuid);
     public record LoginResponse(string Token, string FullName, string Username,
                                 string Role, int UserId, int SessionId);
-    public record LogoutRequest(decimal ClosingCash);
+    public record LogoutRequest(decimal ClosingCash, bool EndShift);
     public record TerminalActivateRequest(string TerminalCode);
 
     public record TerminalActivateResponse(
@@ -144,6 +144,9 @@ namespace PharmacyApi.Models
         public bool    IsSeniorCitizen { get; set; }
         public bool    IsPWD           { get; set; }
         public string? SCPWDId         { get; set; }
+        public string Email            { get; set; } = "";
+        public decimal Points          { get; set; }
+        public string Address          { get; set; } = "";
     }
 
     // ── SALE ──────────────────────────────────────────────────────────────────

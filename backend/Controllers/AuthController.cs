@@ -43,7 +43,11 @@ namespace PharmacyApi.Controllers
         [Authorize]
         public async Task<ActionResult<ApiResult>> Logout([FromBody] LogoutRequest req)
         {
-            await _auth.CloseSessionAsync(User.GetSessionId(), req.ClosingCash);
+            if (req.EndShift)
+            {
+                await _auth.CloseSessionAsync(User.GetSessionId(), req.ClosingCash);
+            }
+            
             return Ok(ApiResult.Ok("Logged out successfully."));
         }
 

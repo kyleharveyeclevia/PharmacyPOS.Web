@@ -24,7 +24,7 @@ api.interceptors.response.use(
 
 export const authApi = {
   login: (username, password, terminalGuid) => api.post('/auth/login', { Username: username, Password: password, TerminalGuid: terminalGuid }),
-  logout: (closingCash) => api.post('/auth/logout', { ClosingCash: closingCash }),
+  logout: (closingCash, endShift) => api.post('/auth/logout', { ClosingCash: closingCash , EndShift: endShift}),
   terminalActivate: (terminalCode) => api.post('/auth/terminal-activate', { TerminalCode: terminalCode }),
 };
 
@@ -42,8 +42,6 @@ export const productsApi = {
       'Content-Type': 'multipart/form-data'
     }
   }),
- 
-  customers: () => api.get('/products/customers'),
 };
 
 export const categoriesApi = {
@@ -56,6 +54,12 @@ export const suppliersApi = {
    getAll: () => api.get('/suppliers'),
    create: (body) => api.post('/suppliers', body),
    update: (id, body) => api.put('/suppliers/' + id, body),
+}
+
+export const customersApi = {
+  getAll: () => api.get('/customers'),
+  create: (body) => api.post('/customers', body),
+  update: (id, body) => api.put('/customers/' + id, body),
 }
 
 export const transactionsApi = {

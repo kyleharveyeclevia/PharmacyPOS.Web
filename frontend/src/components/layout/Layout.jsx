@@ -3,24 +3,26 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { authApi, reportsApi } from '../../services/api.js';
 import toast from 'react-hot-toast';
-import { LayoutDashboard, ShoppingCart, Package, BarChart3, Users, Pill, LogOut, Printer, ChevronDown, X, Layers, Truck} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, BarChart3, Users, Pill, LogOut, Printer, ChevronDown, X, Layers, Truck } from 'lucide-react';
 
 const NAV = [
-  { to: '/dashboard', label: 'Dashboard',   Icon: LayoutDashboard, roles: ['Admin','Pharmacist','Cashier'] },
-  { to: '/pos',       label: 'POS / Sales', Icon: ShoppingCart,    roles: ['Admin','Pharmacist','Cashier'] },
-  { to: '/inventory', label: 'Inventory',   Icon: Package,         roles: ['Admin','Pharmacist'] },
-  { to: '/reports',   label: 'Reports',     Icon: BarChart3,       roles: ['Admin','Pharmacist','Cashier'] },
-  { to: '/users',     label: 'Users',       Icon: Users,           roles: ['Admin'] },
-  { to: '/categories', label: 'Categories', Icon: Layers,         roles: ['Admin','Pharmacist'] },
-  { to: '/suppliers', label: 'Suppliers',  Icon: Truck,         roles: ['Admin','Pharmacist'] },
+  { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard, roles: ['Admin', 'Pharmacist', 'Cashier'] },
+  { to: '/pos', label: 'POS / Sales', Icon: ShoppingCart, roles: ['Admin', 'Pharmacist', 'Cashier'] },
+  { to: '/inventory', label: 'Inventory', Icon: Package, roles: ['Admin', 'Pharmacist'] },
+  { to: '/reports', label: 'Reports', Icon: BarChart3, roles: ['Admin', 'Pharmacist', 'Cashier'] },
+  { to: '/users', label: 'Users', Icon: Users, roles: ['Admin'] },
+  { to: '/categories', label: 'Categories', Icon: Layers, roles: ['Admin', 'Pharmacist'] },
+  { to: '/suppliers', label: 'Suppliers', Icon: Truck, roles: ['Admin', 'Pharmacist'] },
+  { to: '/customers', label: 'Customers', Icon: Users, roles: ['Admin', 'Pharmacist'] },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [modal, setModal]     = useState(false);
-  const [cash, setCash]       = useState('');
+  const [modal, setModal] = useState(false);
+  const [cash, setCash] = useState('');
   const [working, setWorking] = useState(false);
+  const [endShiftText, setEndShiftText] = useState("");
 
   const handleXRead = async () => {
     try {
@@ -32,26 +34,44 @@ export default function Layout() {
     } catch { toast.error('X-Read failed.'); }
   };
 
-  const doLogout = async (withZRead) => {
+ const doLogout = async (withZRead, endShift) => {
     setWorking(true);
     const closingCash = parseFloat(cash) || 0;
+
+    // Require confirmation only when ending the shift
+    if (endShift && endShiftText.trim().toUpperCase() !== "ENDSHIFT") {
+        toast.error("Please enter ENDSHIFT to end your shift.");
+        setWorking(false);
+        return;
+    }
+
     try {
-      if (withZRead) {
-        const { data } = await reportsApi.zread(closingCash);
-        if (data.Success) {
-          const r = data.Data;
-          toast.success('Z-Read ✓  Net: ₱' + r.NetSales.toFixed(2) + '  Variance: ₱' + r.CashVariance.toFixed(2));
+        if (withZRead) {
+            const { data } = await reportsApi.zread(closingCash);
+
+            if (data.Success) {
+                const r = data.Data;
+                toast.success(
+                    `Z-Read ✓ Net: ₱${r.NetSales.toFixed(2)} Variance: ₱${r.CashVariance.toFixed(2)}`
+                );
+            }
+        } else {
+            await authApi.logout(closingCash, endShift);
         }
-        // zread already closes session server-side — do NOT call authApi.logout
-      } else {
-        await authApi.logout(closingCash);
-      }
-    } catch { toast.error('Logout error — clearing session anyway.'); }
-    logout();
-    navigate('/login', { replace: true });
-    setWorking(false);
-    setModal(false);
-  };
+
+        logout();
+        navigate("/login", { replace: true });
+    }
+    catch {
+        toast.error("Logout error — clearing session anyway.");
+        logout();
+        navigate("/login", { replace: true });
+    }
+    finally {
+        setWorking(false);
+        setModal(false);
+    }
+};
 
   const visible = NAV.filter(n => n.roles.includes(user?.role ?? ''));
 
@@ -61,9 +81,14 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-56 bg-gradient-to-b from-green-900 to-emerald-900 flex flex-col shrink-0 shadow-xl">
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-green-800">
-          <div className="bg-white/15 rounded-lg p-1.5"><Pill size={20} className="text-white" /></div>
+          {/* <div className="bg-white/15 rounded-lg p-1.5"><Pill size={20} className="text-white" /></div> */}
+          <div className="bg-white/20 rounded-xl p-3"> <img
+            src="/images/logo.png"
+            alt="Pharmacy Logo"
+            className="h-10 w-auto object-contain"
+          /></div>
           <div>
-            <div className="text-white font-bold text-sm leading-tight">Lourders Pharmacy</div>
+            <div className="text-white font-bold text-sm leading-tight">Lourdes Pharmacy</div>
             <div className="text-green-300 text-xs">Plus POS System</div>
           </div>
         </div>
@@ -74,7 +99,7 @@ export default function Layout() {
               className={({ isActive }) =>
                 'flex items-center gap-3 px-5 py-2.5 text-sm transition-all ' +
                 (isActive ? 'bg-white/15 text-white font-semibold border-r-2 border-green-300'
-                          : 'text-green-200 hover:bg-white/10 hover:text-white')}>
+                  : 'text-green-200 hover:bg-white/10 hover:text-white')}>
               <Icon size={17} />{label}
             </NavLink>
           ))}
@@ -90,7 +115,7 @@ export default function Layout() {
           <div className="text-green-400 text-xs mb-3">{user?.role}</div>
           <button onClick={() => { setCash(''); setModal(true); }}
             className="flex items-center gap-2 text-red-300 hover:text-red-200 text-xs w-full transition-colors">
-            <LogOut size={13} />Logout / Z-Read
+            <LogOut size={13} />Logout / End Shift
           </button>
         </div>
       </aside>
@@ -99,7 +124,7 @@ export default function Layout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0 shadow-sm">
           <div className="text-gray-500 text-sm">
-            {new Date().toLocaleDateString('en-PH', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}
+            {new Date().toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-700">
             <div className="w-7 h-7 bg-green-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
@@ -120,25 +145,36 @@ export default function Layout() {
               <h3 className="text-lg font-bold text-gray-800">End of Shift</h3>
               <button onClick={() => setModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
-            <p className="text-gray-500 text-sm mb-5">
+            {/* <p className="text-gray-500 text-sm mb-5">
               Enter actual cash in drawer. <strong>Logout + Z-Read</strong> generates the end-of-day report and closes the session.
             </p>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Closing Cash (PHP)</label>
             <input type="number" step="0.01" min="0" value={cash}
               onChange={e => setCash(e.target.value)}
               className="w-full border border-gray-300 rounded-xl px-4 py-3 text-2xl font-bold text-right focus:ring-2 focus:ring-green-500 outline-none mb-5"
-              placeholder="0.00" autoFocus />
+              placeholder="0.00" autoFocus /> */}
+
+            <p className="text-gray-500 text-sm mb-5">
+              Enter <strong>ENDSHIFT</strong> to confirm that you want to end your shift.
+            </p>
+            <input
+              type="text"
+              value={endShiftText}
+              onChange={(e) => setEndShiftText(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-2xl font-bold focus:ring-2 focus:ring-green-500 outline-none mb-5 text-center"
+              autoFocus
+            />
             <div className="flex gap-3">
-              <button onClick={() => doLogout(false)} disabled={working}
+              <button onClick={() => doLogout(false, false)} disabled={working}
                 className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-sm transition disabled:opacity-60">
                 Logout Only
               </button>
-              <button onClick={() => doLogout(true)} disabled={working}
+              <button onClick={() => doLogout(false, true)} disabled={working}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl text-sm transition disabled:opacity-60 flex items-center justify-center gap-2">
                 {working
                   ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   : <LogOut size={14} />}
-                Logout + Z-Read
+                Logout + End Shift
               </button>
             </div>
           </div>

@@ -6,6 +6,7 @@ using Dapper;
 using Microsoft.IdentityModel.Tokens;
 using PharmacyApi.Data;
 using PharmacyApi.Models;
+using Serilog.Core;
 
 namespace PharmacyApi.Services
 {
@@ -20,7 +21,7 @@ namespace PharmacyApi.Services
     {
         private readonly IDbConnectionFactory _db;
         private readonly IConfiguration _cfg;
-        public AuthService(IDbConnectionFactory db, IConfiguration cfg) { _db=db; _cfg=cfg; }
+        public AuthService(IDbConnectionFactory db, IConfiguration cfg) { _db = db; _cfg = cfg; }
 
         public async Task<(bool ok, string msg, LoginResponse? data)> LoginAsync(LoginRequest req)
         {
@@ -47,15 +48,21 @@ namespace PharmacyApi.Services
                 return (false, "Invalid username or password.", null);
 
             // 3. Open session with terminal ID
-            var sessionId = await conn.ExecuteScalarAsync<int>(
-                "sp_OpenSessionWithTerminalId",
-                new
-                {
-                    UserId = user.Id,
-                    TerminalId = terminal.Id,
-                    OpeningCash = 0m
-                },
-                commandType: CommandType.StoredProcedure);
+            var result = await conn.QuerySingleAsync<OpenSessionResult>(
+            "sp_OpenSessionWithTerminalId",
+            new
+            {
+                UserId = user.Id,
+                TerminalId = terminal.Id,
+                OpeningCash = 0m
+            },
+             commandType: CommandType.StoredProcedure);
+
+            int sessionId = result.SessionId;
+            string message = result.Message;
+
+            if(sessionId <= 0)
+                return(false, message, null);
 
             // 4. Update last login
             await conn.ExecuteAsync("sp_UpdateLastLogin",
@@ -79,7 +86,7 @@ namespace PharmacyApi.Services
         {
             using var conn = _db.Create();
             await conn.ExecuteAsync("sp_CloseSession",
-                new { SessionId=sessionId, ClosingCash=closingCash },
+                new { SessionId = sessionId, ClosingCash = closingCash },
                 commandType: CommandType.StoredProcedure);
         }
 
@@ -107,10 +114,10 @@ namespace PharmacyApi.Services
 
         private string BuildJwt(int userId, string username, string fullName, string role, int sessionId)
         {
-            var key     = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_cfg["Jwt:Key"]!));
-            var creds   = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_cfg["Jwt:Key"]!));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var expires = DateTime.UtcNow.AddHours(double.Parse(_cfg["Jwt:ExpiryHours"] ?? "12"));
-            var claims  = new[]
+            var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, username),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
@@ -125,15 +132,21 @@ namespace PharmacyApi.Services
 
         private class LoginUserRow
         {
-            public int      Id           { get; set; }
-            public string   Username     { get; set; } = "";
-            public string   PasswordHash { get; set; } = "";
-            public string   FullName     { get; set; } = "";
-            public string   Email        { get; set; } = "";
-            public string   Phone        { get; set; } = "";
-            public string   Role         { get; set; } = "";
-            public bool     IsActive     { get; set; }
-            public DateTime? LastLogin   { get; set; }
+            public int Id { get; set; }
+            public string Username { get; set; } = "";
+            public string PasswordHash { get; set; } = "";
+            public string FullName { get; set; } = "";
+            public string Email { get; set; } = "";
+            public string Phone { get; set; } = "";
+            public string Role { get; set; } = "";
+            public bool IsActive { get; set; }
+            public DateTime? LastLogin { get; set; }
+        }
+
+        public class OpenSessionResult
+        {
+            public int SessionId { get; set; }
+            public string Message { get; set; }
         }
 
         public class TerminalRow

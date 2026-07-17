@@ -16,7 +16,6 @@ namespace PharmacyApi.Services
         Task<(bool ok, string msg)>         AdjustStockAsync(int productId, int userId, int adjustment, string reason);
         Task<(bool ok, string msg)>         ToggleProductAsync(SaveProductRequest req);
         Task<List<SupplierDto>> GetSuppliersAsync();
-        Task<List<CustomerDto>> GetCustomersAsync();
         Task<(bool ok, string msg, int txId, string receipt)> ProcessSaleAsync(ProcessSaleRequest req, int userId, int sessionId);
         Task<(bool ok, string msg)>           VoidTransactionAsync(int txId, string reason);
         Task<(bool ok, string msg, int txId)> ProcessReturnAsync(int originalId, ReturnRequest req, int userId, int sessionId);
@@ -41,6 +40,11 @@ namespace PharmacyApi.Services
         #region Categories
         Task<List<CategoryDto>> GetCategoriesAsync();
         Task<(bool ok, string msg, int id)> SaveCategoryAsync(CategoryDto category, bool isNew);
+        #endregion
+
+        #region Customers
+        Task<List<CustomerDto>> GetCustomersAsync();
+        Task<(bool ok, string msg, int id)> SaveCustomerAsync(CustomerDto category, bool isNew);
         #endregion
     }
 
@@ -345,18 +349,58 @@ namespace PharmacyApi.Services
 
                 return (r.Result > 0, r.Message, r.Result > 0 ? r.Result : 0);
             }
-           
-
-            
         }
         #endregion
 
-        // ── LOOKUPS ───────────────────────────────────────────────────────────
+        #region Customers
+        public async Task<List<CustomerDto>> GetCustomersAsync()
+        { using var c = _db.Create(); return (await c.QueryAsync<CustomerDto>("sp_GetCustomers", commandType: CommandType.StoredProcedure)).ToList(); }
+
+        public async Task<(bool ok, string msg, int id)> SaveCustomerAsync(CustomerDto req, bool isNew)
+        {
+            using var c = _db.Create();
+
+            if (isNew)
+            {
+                var r = await c.QueryFirstAsync<SpResult>("sp_SaveCustomer", new
+                {
+                    req.Name,
+                    req.Phone,
+                    req.Email,
+                    req.Address,
+                    req.IsSeniorCitizen,
+                    req.IsPWD,
+                    req.SCPWDId,
+                    req.Points,
+                }, commandType: CommandType.StoredProcedure);
+
+                return (r.Result > 0, r.Message, r.Result > 0 ? r.Result : 0);
+            }
+
+            else
+            {
+                var r = await c.QueryFirstAsync<SpResult>("sp_UpdateCustomer", new
+                {
+                    req.Id,
+                    req.Name,
+                    req.Phone,
+                    req.Email,
+                    req.Address,
+                    req.IsSeniorCitizen,
+                    req.IsPWD,
+                    req.SCPWDId,
+                    req.Points,
+                }, commandType: CommandType.StoredProcedure);
+
+                return (r.Result > 0, r.Message, r.Result > 0 ? r.Result : 0);
+            }
+        }
+
+        #endregion
 
         public async Task<List<SupplierDto>> GetSuppliersAsync()
         { using var c=_db.Create(); return (await c.QueryAsync<SupplierDto>("sp_GetSuppliers", commandType: CommandType.StoredProcedure)).ToList(); }
-        public async Task<List<CustomerDto>> GetCustomersAsync()
-        { using var c=_db.Create(); return (await c.QueryAsync<CustomerDto>("sp_GetCustomers", commandType: CommandType.StoredProcedure)).ToList(); }
+        
 
         // ── SALE ─────────────────────────────────────────────────────────────
         public async Task<(bool ok, string msg, int txId, string receipt)> ProcessSaleAsync(ProcessSaleRequest req, int userId, int sessionId)

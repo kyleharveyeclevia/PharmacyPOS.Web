@@ -98,8 +98,5 @@ namespace PharmacyApi.Controllers
                 $"Import completed. {result.SuccessCount} succeeded, {result.FailedCount} failed."
             ));
         }
-
-        [HttpGet("customers")]  public async Task<ActionResult<ApiResult<List<CustomerDto>>>> Customers()
-            => Ok(ApiResult<List<CustomerDto>>.Ok(await _svc.GetCustomersAsync()));
     }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { productsApi, transactionsApi } from '../services/api.js';
+import { productsApi, transactionsApi, customersApi } from '../services/api.js';
 import toast from 'react-hot-toast';
 import { Search, X, Plus, Minus, Trash2, CheckCircle, ShoppingCart, Printer } from 'lucide-react';
 
@@ -25,7 +25,7 @@ export default function POSPage() {
   const processSaleRef = useRef(null);
 
   useEffect(() => {
-    productsApi.customers().then(r => {
+    customersApi.getAll().then(r => {
       if (r.data.Success) {
         setCustomers(r.data.Data);
         setCustomerId(r.data.Data[0]?.Id ?? null);
