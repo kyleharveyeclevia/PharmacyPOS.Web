@@ -52,8 +52,9 @@ export default function LoginPage() {
               className="h-10 w-auto object-contain"
             /></div>
             <div>
-              <h1 className="text-2xl font-bold">Lourdes Pharmacy</h1>
-              <p className="text-green-200 text-sm">Plus POS System</p>
+              <h1 className="text-2xl font-bold">{__APP_NAME__}</h1>
+              <p className="text-green-200 text-sm">{__APP_VERSION_DESCRIPTION__}</p>
+              <p className="text-green-200 text-xs">Version: {__APP_VERSION__} </p>
             </div>
           </div>
           {['Complete POS & Inventory', 'X-Read / Z-Read Reports', 'SC/PWD VAT-Exempt (RA 9994/9442)',

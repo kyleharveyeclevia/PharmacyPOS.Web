@@ -1,7 +1,8 @@
 {
-  "name": "pharmacy-pos-frontend",
+  "name": "Lourdes Pharmacy",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.0.0",
+  "versiondescription": "Plus POS System",
   "type": "module",
   "scripts": {
     "dev":     "vite",

@@ -88,8 +88,8 @@ export default function Layout() {
             className="h-10 w-auto object-contain"
           /></div>
           <div>
-            <div className="text-white font-bold text-sm leading-tight">Lourdes Pharmacy</div>
-            <div className="text-green-300 text-xs">Plus POS System</div>
+            <div className="text-white font-bold text-sm leading-tight">{__APP_NAME__}</div>
+            <div className="text-green-300 text-xs">{__APP_VERSION_DESCRIPTION__}</div>
           </div>
         </div>
 

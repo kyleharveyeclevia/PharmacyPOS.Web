@@ -56,8 +56,8 @@ const handleSubmit = async (e) => {
               />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Lourdes Pharmacy</h1>
-              <p className="text-green-200 text-sm">Plus POS System</p>
+              <h1 className="text-2xl font-bold">{__APP_NAME__}</h1>
+              <p className="text-green-200 text-sm">{__APP_VERSION_DESCRIPTION__}</p>
             </div>
           </div>
 
