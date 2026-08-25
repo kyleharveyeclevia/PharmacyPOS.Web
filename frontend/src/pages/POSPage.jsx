@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { productsApi, transactionsApi, customersApi } from '../services/api.js';
 import toast from 'react-hot-toast';
 import { Search, X, Plus, Minus, Trash2, CheckCircle, ShoppingCart, Printer } from 'lucide-react';
+import { useHardwareAgent } from '../context/HardwareAgentContext.jsx';
+import { useTerminalAccess } from '../context/TerminalAccessContext.jsx';
 
 const php = (n) => '₱' + (n ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
 const toDecimal = (n, d) => (n ?? 0).toLocaleString('en-PH', { minimumFractionDigits: d });
@@ -9,6 +11,8 @@ const PAYMENTS = ['Cash', 'Card', 'GCash'];
 const QUICK = [20, 50, 100, 200, 500, 1000];
 
 export default function POSPage() {
+  const { isAvailable } = useHardwareAgent();
+  const { terminal } = useTerminalAccess();
   const [cart, setCart] = useState([]);
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
@@ -120,14 +124,12 @@ export default function POSPage() {
       if (!window.confirm('Cart has Rx items. Continue without prescription number?')) return;
     if (tendered < total) { toast.error('Insufficient payment. Need: ' + php(total)); return; }
 
-    let terminalId = localStorage.getItem('terminalId');
-
     setProcessing(true);
     try {
       const { data } = await transactionsApi.sale({
         Items: cart, CustomerId: customerId, PaymentMethod: payment,
         AmountTendered: tendered, DiscountPercent: discPct, VatExemptAmount: vatExemptAmount,
-        IsScPwd: isScPwd, PrescriptionNumber: rxNo || null, Notes: null, TerminalId: terminalId
+        IsScPwd: isScPwd, PrescriptionNumber: rxNo || null, Notes: null, TerminalId: terminal?.Id
       });
       if (!data.Success) { toast.error(data.Message); return; }
       setLastReceipt(data.Data.receiptNumber);
@@ -139,7 +141,7 @@ export default function POSPage() {
     } catch (e) {
       toast.error(e.response?.data?.Message ?? 'Sale failed.');
     } finally { setProcessing(false); }
-  }, [cart, customerId, payment, tendered, discPct, isScPwd, rxNo, total, change, customers]);
+  }, [cart, customerId, payment, tendered, discPct, isScPwd, rxNo, total, change, customers, terminal]);
 
   useEffect(() => { processSaleRef.current = processSale; }, [processSale]);
 
@@ -367,12 +369,12 @@ export default function POSPage() {
           </div>
 
           {/* Process button */}
-          <button onClick={processSale} disabled={processing || cart.length === 0}
+          <button onClick={processSale} disabled={processing || cart.length === 0 || !isAvailable}
             className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition shadow-md text-sm">
             {processing
               ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <CheckCircle size={18} />}
-            {processing ? 'Processing...' : 'PROCESS SALE '}
+            {processing ? 'Processing...' : !isAvailable ? 'HARDWARE AGENT REQUIRED' : 'PROCESS SALE '}
           </button>
 
           {lastReceipt && (

@@ -13,6 +13,13 @@ backend/obj/
 backend/appsettings.Development.json
 
 # ========================
+# HARDWARE AGENT (.NET)
+# ========================
+hardware-agent/bin/
+hardware-agent/obj/
+hardware-agent/appsettings.Development.json
+
+# ========================
 # ENV FILES
 # ========================
 .env
@@ -33,5 +40,6 @@ Thumbs.db
 # VISUAL STUDIO
 # ========================
 backend/.vs/
+.vs/
 *.suo
 *.vsidx

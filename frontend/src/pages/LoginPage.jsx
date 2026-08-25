@@ -4,10 +4,12 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { authApi } from '../services/api.js';
 import toast from 'react-hot-toast';
 import { Pill, Eye, EyeOff, LogIn } from 'lucide-react';
+import { useTerminalAccess } from '../context/TerminalAccessContext.jsx';
 
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const { terminal } = useTerminalAccess();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -18,17 +20,14 @@ export default function LoginPage() {
     e.preventDefault();
     if (!username || !password) { toast.error('Enter username and password.'); return; }
     
-    const terminalGuid = localStorage.getItem('terminalGuid');
-
-    if (!terminalGuid) {
-      toast.error('Terminal not activated.');
-      navigate('/terminal-setup');
+    if (!terminal) {
+      toast.error('This machine does not have POS access.');
       return;
     }
 
     setLoading(true);
     try {
-      const { data } = await authApi.login(username, password, terminalGuid);
+      const { data } = await authApi.login(username, password, terminal.TerminalGuid);
       if (!data.Success) { toast.error(data.Message); return; }
       const d = data.Data;
       login({ userId: d.UserId, sessionId: d.SessionId, username: d.Username, fullName: d.FullName, role: d.Role, token: d.Token });

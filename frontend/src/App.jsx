@@ -9,7 +9,6 @@ import POSPage from './pages/POSPage.jsx';
 import InventoryPage from './pages/InventoryPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
 import UsersPage from './pages/UsersPage.jsx';
-import TerminalSetupPage from './pages/TerminalSetupPage.jsx';
 import ImportProductsPage from './pages/ImportProductsPage.jsx';
 import CategoriesPage from './pages/CategoriesPage.jsx';
 import SuppliersPage from './pages/SuppliersPage.jsx';
@@ -19,16 +18,7 @@ import TerminalGuard from './guards/TerminalGuard.jsx';
 /* =========================
    TERMINAL GUARD
 ========================= */
-function TerminalGuardWrapper({ children }) {
-  const terminalGuid = localStorage.getItem('terminalGuid');
-  const terminalId = localStorage.getItem('terminalId');
-
-  if (!terminalGuid || !terminalId) {
-    return <Navigate to="/terminal-setup" replace />;
-  }
-
-  return children;
-}
+function TerminalGuardWrapper({ children }) { return children; }
 
 /* =========================
    AUTH GUARD
@@ -73,7 +63,7 @@ export default function App() {
 
           {/* PUBLIC */}
           <Route path="/login" element={<TerminalGuard><LoginPage /></TerminalGuard>} />
-          <Route path="/terminal-setup" element={<TerminalSetupPage />} />
+          <Route path="/terminal-setup" element={<Navigate to="/login" replace />} />
 
           {/* PROTECTED LAYOUT */}
           <Route path="/" element={<ProtectedLayout />}>
