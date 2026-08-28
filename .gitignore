@@ -6,17 +6,15 @@ frontend/dist/
 frontend/.vite/
 
 # ========================
-# BACKEND (.NET)
+# .NET build output
 # ========================
-backend/bin/
-backend/obj/
+**/bin/
+**/obj/
 backend/appsettings.Development.json
 
 # ========================
 # HARDWARE AGENT (.NET)
 # ========================
-hardware-agent/bin/
-hardware-agent/obj/
 hardware-agent/appsettings.Development.json
 
 # ========================
@@ -39,7 +37,6 @@ Thumbs.db
 # ========================
 # VISUAL STUDIO
 # ========================
-backend/.vs/
-.vs/
+**/.vs/
 *.suo
 *.vsidx
