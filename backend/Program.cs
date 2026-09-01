@@ -2,7 +2,6 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using PharmacyApi.Data;
-using PharmacyApi.Hubs;
 using PharmacyApi.Services;
 using Serilog;
 
@@ -21,8 +20,6 @@ builder.Host.UseSerilog();
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = null);
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSignalR();
-builder.Services.AddSingleton<HardwareAgentRegistry>();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "RxPharmacy POS API", Version = "v1" });
@@ -65,21 +62,7 @@ builder.Services.AddCors(o => o.AddPolicy("ReactApp", p =>
 var app = builder.Build();
 if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
 app.UseCors("ReactApp");
-app.Use(async (context, next) =>
-{
-    if (HttpMethods.IsPost(context.Request.Method) &&
-        context.Request.Path.Equals("/api/transactions/sale", StringComparison.OrdinalIgnoreCase) &&
-        !context.RequestServices.GetRequiredService<HardwareAgentRegistry>().ConnectedAgents.Any())
-    {
-        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-        await context.Response.WriteAsJsonAsync(new { Success = false, Message = "Hardware agent is not connected. Sales are disabled." });
-        return;
-    }
-
-    await next();
-});
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHub<HardwareAgentHub>("/hubs/hardware-agent");
 app.Run();

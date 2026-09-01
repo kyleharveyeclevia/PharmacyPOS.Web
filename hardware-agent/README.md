@@ -1,33 +1,31 @@
 # Pharmacy Hardware Agent
 
-This is a lightweight .NET 8 process installed and run on each POS machine. It reads the active network adapters' MAC addresses and registers them with the Pharmacy API over SignalR.
+This is a lightweight .NET 8 process installed and run on each POS machine. It reads the active network adapter's MAC address and self-hosts a SignalR hub on `localhost` that the POS **frontend, running on that same machine, connects to directly**.
+
+The Pharmacy web API backend has no involvement in this at all — it never talks to the agent, and the agent never talks to it. The only connection is browser <-> agent, both on `localhost`.
 
 ## Run locally
-
-Start the API first, then run:
 
 ```powershell
 dotnet run --project hardware-agent/PharmacyHardwareAgent.csproj
 ```
 
-The default API hub URL is `https://localhost:57086/hubs/hardware-agent`. To point at a deployed API, pass the hub URL as the first argument:
+By default the hub is hosted at `http://localhost:5090/hubs/hardware-agent`. Override the port via `appsettings.json`'s `LocalPort`, or per-run with `--local-port`:
 
 ```powershell
-dotnet run --project hardware-agent/PharmacyHardwareAgent.csproj -- https://pos.example.com/hubs/hardware-agent
+dotnet run --project hardware-agent/PharmacyHardwareAgent.csproj -- --local-port 5091 --name "Register 1" --location "Front counter"
 ```
-
-The agent creates a persistent identifier in `%LocalAppData%\PharmacyHardwareAgent\agent-id.txt`, reconnects automatically, and re-registers after reconnecting.
 
 ## Web-app listener
 
-The React `HardwareAgentProvider` subscribes to `HardwareAgentConnected` and `HardwareAgentDisconnected` and requests the current list through `GetConnectedAgents`. Use `useHardwareAgent()` anywhere in the app:
+The React `HardwareAgentProvider` connects straight to the agent's hub (`http://localhost:5090/hubs/hardware-agent` by default — see `VITE_HARDWARE_AGENT_URL` in the frontend) and calls `GetInfo()` to learn this machine's identity. Use `useHardwareAgent()` anywhere in the app:
 
 ```jsx
 const { isAvailable, macAddresses, agents } = useHardwareAgent();
 ```
 
-`macAddresses` contains the MAC IDs reported by the connected agents. `TerminalGuard` requires an available agent before users can reach the login page or any protected POS page.
+`macAddresses` contains the MAC ID reported by this machine's agent. `TerminalGuard` requires the agent to be reachable before users can reach the login page or any protected POS page.
 
 ## Production note
 
-The hub currently assumes agents can reach the API and is intentionally unauthenticated for initial local deployment. Before exposing it beyond a trusted private network, protect agent registration with an agent credential or mutual TLS and authorize browser clients appropriately.
+The hub only ever listens on the loopback interface and is intentionally unauthenticated, since only a browser on the same machine can reach it. CORS is locked to the Vite dev origin (`http://localhost:5173`) — add any other trusted origin the web app is served from before deploying.

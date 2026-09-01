@@ -19,12 +19,37 @@ const NAV = [
 
 function HardwareStatus() {
   const { isAvailable, isConnecting, macAddresses } = useHardwareAgent();
-  const label = isConnecting ? 'Hardware: Checking' : isAvailable ? 'Hardware: Connected' : 'Hardware: Disconnected';
-  const color = isConnecting ? 'bg-amber-400' : isAvailable ? 'bg-emerald-500' : 'bg-red-500';
+
+  const label = isConnecting
+    ? 'Hardware: Checking'
+    : isAvailable
+      ? 'Hardware: Connected'
+      : 'Hardware: Disconnected';
+
+  const color = isConnecting
+    ? 'bg-amber-400'
+    : isAvailable
+      ? 'bg-emerald-500'
+      : 'bg-red-500';
+
+  const containerColor = isConnecting
+    ? 'border-amber-200 bg-amber-50 text-amber-700'
+    : isAvailable
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : 'border-red-200 bg-red-50 text-red-700';
+
   return (
-    <div title={macAddresses.length ? `MAC: ${macAddresses.join(', ')}` : 'No hardware agent connected'}
-      className={'flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ' +
-        (isAvailable ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700')}>
+    <div
+      title={
+        macAddresses.length
+          ? `MAC: ${macAddresses.join(', ')}`
+          : 'No hardware agent connected'
+      }
+      className={
+        'flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ' +
+        containerColor
+      }
+    >
       <span className={'h-2 w-2 rounded-full ' + color} />
       {label}
     </div>

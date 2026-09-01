@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "PharmacyApi.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "..\\hardware-agent\\PharmacyHardwareAgent.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

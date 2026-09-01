@@ -13,7 +13,10 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': { target: 'https://localhost:57086', changeOrigin: true, secure: false },
-      '/hubs': { target: 'https://localhost:57086', changeOrigin: true, secure: false, ws: true },
+      // Note: the hardware agent's SignalR hub is intentionally NOT proxied
+      // here. The frontend connects to it directly on localhost (see
+      // VITE_HARDWARE_AGENT_URL / HardwareAgentContext.jsx) — the backend
+      // has no involvement in that connection.
     },
   },
 });
