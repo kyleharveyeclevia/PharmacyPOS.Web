@@ -1,9 +1,8 @@
-USE [RxPharmacyDB]
-GO
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+
 CREATE OR ALTER PROCEDURE [dbo].[sp_GetFastMovingItemsByDateRange]
     @StartDate DATE,
     @EndDate   DATE
@@ -28,7 +27,7 @@ BEGIN
 
         CASE
             WHEN P.StockQuantity <= 0 THEN 'OUT OF STOCK'
-            WHEN P.StockQuantity <= 10 THEN 'LOW STOCK'
+            WHEN P.StockQuantity <= P.ReorderLevel THEN 'LOW STOCK'
             ELSE 'OK'
         END AS StockStatus,
 
@@ -44,14 +43,15 @@ BEGIN
         ON P.Id = B.ProductId
 
     WHERE
-        CAST(A.TransactionDate AS DATE) BETWEEN @StartDate AND @EndDate
-        AND ISNULL(A.IsVoided, 0) = 0
+        A.TransactionDate >= @StartDate AND A.TransactionDate < DATEADD(DAY,1,CONVERT(datetime2,@EndDate))
+        AND A.IsVoided = 0 AND A.TransactionType = 'Sale'
 
     GROUP BY
         B.ProductId,
         P.Name,
-        P.StockQuantity
+        P.StockQuantity, P.ReorderLevel
 
     ORDER BY
         QuantitySold DESC;
 END
+GO

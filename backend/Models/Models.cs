@@ -73,6 +73,7 @@ namespace PharmacyApi.Models
         public decimal   CostPrice            { get; set; }
         public decimal   SellingPrice         { get; set; }
         public int       StockQuantity        { get; set; }
+        public int AvailableStockQuantity { get; set; }
         public int       ReorderLevel         { get; set; }
         public bool      RequiresPrescription { get; set; }
         public bool      IsActive             { get; set; }
@@ -234,6 +235,7 @@ namespace PharmacyApi.Models
         public decimal  CardSales         { get; set; }
         public decimal  GCashSales        { get; set; }
         public decimal  PhilHealthSales   { get; set; }
+        public decimal HMOSales { get; set; }
         public decimal  RefundAmount      { get; set; }
         public decimal  VoidAmount        { get; set; }
         public int      ItemsSold         { get; set; }

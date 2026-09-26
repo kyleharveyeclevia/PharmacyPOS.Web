@@ -1,22 +1,13 @@
-import { useState, useEffect } from 'react';
-import { transactionsApi, reportsApi } from '../services/api.js';
+import {useState, useEffect} from 'react';
+import {transactionsApi, reportsApi} from '../services/api.js';
 import toast from 'react-hot-toast';
-import { Search, Printer, Ban, BarChart3, X } from 'lucide-react';
-import { useAuth } from '../context/AuthContext.jsx';
-
-const php = (n) => '₱' + (n ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
-const today = () => new Date().toISOString().split('T')[0];
-const fmtDt = (s) => new Date(s).toLocaleString('en-PH', { month: '2-digit', day: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-const debugging = true;
-
-const WriteToConsole = (text, data) => {
-  if (debugging) {
-    if (data === undefined)
-      data = '';
-    console.log(text, data);
-  }
-}
-
+import {Search, X} from 'lucide-react';
+import {useAuth} from '../context/AuthContext.jsx';
+import {localDate, REPORTS, previousPeriod, salesTotals, filterTransactions, downloadCsv, printReport} from './reports/reportUtils.js';
+import SalesSummaryReport from './reports/SalesSummaryReport.jsx';
+import TransactionHistoryReport from './reports/TransactionHistoryReport.jsx';
+import MovementReport from './reports/MovementReport.jsx';
+import InventoryReport from './reports/InventoryReport.jsx';
 const Modal = ({ title, onClose, children }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -36,176 +27,79 @@ const Modal = ({ title, onClose, children }) => {
   );
 };
 
-export default function ReportsPage() {
-  const { user } = useAuth();
-  const canVoid = user?.role === 'Admin' || user?.role === 'Pharmacist';
-
-  const [start, setStart] = useState(today());
-  const [end, setEnd] = useState(today());
-  const [txList, setTxList] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [xread, setXread] = useState(null);
-  const [zread, setZread] = useState(null);
-  const [cash, setCash] = useState('');
-  const [showZ, setShowZ] = useState(false);
+export default function ReportsPage({report = 'sales'}) {
+  const {user} = useAuth();
+  const canVoid = ['Admin','Pharmacist'].includes(user?.role);
+  const title = REPORTS.find(item => item.id === report)?.label;
+  const [start, setStart] = useState(localDate());
+  const [end, setEnd] = useState(localDate());
+  const [range, setRange] = useState({start:localDate(), end:localDate()});
+  const [page, setPage] = useState(1);
+  const [refresh, setRefresh] = useState(0);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [exporting,setExporting]=useState(false);
+  const [cashier,setCashier]=useState('');
+  const [payment,setPayment]=useState('');
+  const [status,setStatus]=useState('');
+  const [expiryDays,setExpiryDays]=useState(90);
+  const inventory=['low-stock','expiry'].includes(report);
+  const period=previousPeriod(range.start,range.end);
+  const [error, setError] = useState('');
+  const [working, setWorking] = useState(false);
   const [voidTx, setVoidTx] = useState(null);
   const [voidReason, setVoidReason] = useState('');
-  // Slow moving items
-  const [slowMovingItems, setSlowMovingItems] = useState([]);
-  const [slowPage, setSlowPage] = useState(1);
-  const [slowTotalPages, setSlowTotalPages] = useState(1);
-  const slowPageSize = 10;
-
-  // fast moving items 
-  const [fastMovingItems, setFastMovingItems] = useState([]);
-  const [fastPage, setFastPage] = useState(1);
-  const [fastTotalPages, setFastTotalPages] = useState(1);
-  const fastPageSize = 10;
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [txRes, sumRes] = await Promise.all([
-        transactionsApi.byRange(start, end),
-        reportsApi.summary(start, end),
-      ]);
-      if (txRes.data.Success) setTxList(txRes.data.Data);
-      if (sumRes.data.Success) setSummary(sumRes.data.Data);
-
-    } catch (error) {
-      toast.error('Failed to load.');
-      console.log(error);
-    }
-    finally { setLoading(false); }
-  };
-
-  const loadSlowMovingItems = async () => {
-    setLoading(true);
-    WriteToConsole('load slow moving items');
-
-    try {
-      const [slowMovingItemsRes] = await Promise.all([
-        reportsApi.getSlowMovingItemsWithOffset(start, end, slowPage, slowPageSize),
-      ]);
-
-
-      if (slowMovingItemsRes.data.Success) {
-        setSlowMovingItems(slowMovingItemsRes.data.Data.Items ?? []);
-
-        let totalPages = Math.ceil(
-          slowMovingItemsRes.data.Data.TotalRecords / slowPageSize
-        );
-
-        setSlowTotalPages(totalPages);
-
-        WriteToConsole('Total Records:', slowMovingItemsRes.data.Data.TotalRecords);
-        WriteToConsole('Calculated Total Pages:', totalPages);
+  const unwrap = response => {if(!response.data.Success)throw new Error(response.data.Message || 'Failed to load report.');return response.data.Data;};
+  useEffect(() => {
+    let active=true;setLoading(true);setError('');setResult(null);
+    const load=async()=> {
+      if(report==='sales') {
+        const [current,currentTx,prior,priorTx]=await Promise.all([reportsApi.summary(range.start,range.end),transactionsApi.byRange(range.start,range.end),reportsApi.summary(period.start,period.end),transactionsApi.byRange(period.start,period.end)]);
+        return {summary:salesTotals(unwrap(current),unwrap(currentTx)),previous:salesTotals(unwrap(prior),unwrap(priorTx))};
       }
-    }
-
-    catch {
-      toast.error('Failed to load slow moving items');
-    }
-
-    finally {
-      setLoading(false);
-    }
-  }
-
-  const loadFastMovingItems = async () => {
-    setLoading(true);
-    WriteToConsole('load fast moving items');
-
+      if(report==='transactions')return unwrap(await transactionsApi.byRange(range.start,range.end));
+      if(report==='low-stock')return unwrap(await reportsApi.lowStock());
+      if(report==='expiry')return unwrap(await reportsApi.expiry(expiryDays));
+      return unwrap(await (report==='fast-moving'?reportsApi.getFastMovingItemsWithOffset(range.start,range.end,page,10):reportsApi.getSlowMovingItemsWithOffset(range.start,range.end,page,10)));
+    };
+    load().then(data=>{if(active)setResult(data);}).catch(error=>{if(active)setError(error.response?.data?.Message || error.message || 'Failed to load report.');}).finally(()=>{if(active)setLoading(false);});
+    return ()=>{active=false;};
+  },[report,range,page,refresh,expiryDays]);
+  const transactions=report==='transactions'?filterTransactions(result ?? [],cashier,payment,status):[];
+  const exportReport=async mode=> {
+    setExporting(true);
     try {
-      const [fastMovingItemsRes] = await Promise.all([
-        reportsApi.getFastMovingItemsWithOffset(start, end, fastPage, fastPageSize),
-      ]);
-
-
-      if (fastMovingItemsRes.data.Success) {
-        setFastMovingItems(fastMovingItemsRes.data.Data.Items ?? []);
-
-        let totalPages = Math.ceil(
-          fastMovingItemsRes.data.Data.TotalRecords / fastPageSize
-        );
-
-        setFastTotalPages(totalPages);
-
-        WriteToConsole('Total Records:', fastMovingItemsRes.data.Data.TotalRecords);
-        WriteToConsole('Calculated Total Pages:', totalPages);
-      }
-    }
-
-    catch {
-      toast.error('Failed to load slow moving items');
-    }
-
-    finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { load(); }, []);
-  useEffect(() => { loadSlowMovingItems() }, [slowPage]);
-  useEffect(() => { loadFastMovingItems() }, [fastPage]);
-
-  const genXRead = async () => {
-    try {
-      const { data } = await reportsApi.xread();
-      if (data.Success) { setXread(data.Data); toast.success('X-Read generated.'); }
-    } catch { toast.error('X-Read failed.'); }
+      let rows,columns;
+      if(report==='sales') {rows=Object.entries(result.summary).filter(([key])=>['Sales','Returns','NetSales','Voids','TotalCount','TotalDiscount','TotalVat','TotalItems'].includes(key)).map(([key,Value])=>({Metric:({Sales:'Sales Before Returns',Returns:'Returns',NetSales:'Net Sales',Voids:'Voided Amount',TotalCount:'Sale Transactions',TotalDiscount:'Discounts on Sales',TotalVat:'VAT on Sales',TotalItems:'Items Sold'})[key],Value}));rows.push({Metric:'Previous period net sales',Value:result.previous.NetSales});columns=[{key:'Metric',label:'Metric'},{key:'Value',label:'Value'}];}
+      else if(report==='transactions'){rows=transactions.map(tx=>({...tx,Status:tx.IsVoided?'VOIDED':tx.TransactionType==='Return'?'RETURN':'PAID'}));columns=[['ReceiptNumber','Receipt'],['TransactionDate','Date & Time'],['CashierName','Cashier'],['TransactionType','Type'],['PaymentMethod','Payment'],['DiscountAmount','Discount'],['TotalAmount','Total'],['Status','Status']];}
+      else if(inventory){rows=result ?? [];columns=report==='expiry'?[['ProductName','Product'],['BatchNo','Batch'],['ExpiryDate','Expiry'],['StockQuantity','Stock'],['Status','Status']]:[['ProductName','Product'],['CategoryName','Category'],['StockQuantity','Total Stock'],['AvailableStockQuantity','Available'],['ReorderLevel','Reorder Level'],['SuggestedOrder','Suggested Minimum Order']];}
+      else {rows=unwrap(await(report==='fast-moving'?reportsApi.getFastMovingItems(range.start,range.end):reportsApi.getSlowMovingItems(range.start,range.end)));columns=[['Rank','Rank'],['ProductName','Product'],['QuantitySold','Qty Sold'],['TotalSales','Sales'],['AverageSellingPrice','Average Price'],['StockQuantity','Stock']];}
+      columns=columns.map(c=>Array.isArray(c)?{key:c[0],label:c[1]}:c);
+      const details=inventory?(report==='expiry'?'Expired stock and batches expiring within '+expiryDays+' days':'Current stock'):'Period: '+range.start+' to '+range.end+(report==='transactions'?' · Cashier: '+((result ?? []).find(tx=>String(tx.UserId)===cashier)?.CashierName || 'All')+' · Payment: '+(payment || 'All')+' · Status: '+(status || 'All'):'');
+      if(mode==='csv')downloadCsv(report+'-'+localDate()+'.csv',columns,rows);else printReport(title,details,columns,rows);
+    }catch(error){toast.error(error.response?.data?.Message || error.message || 'Export failed.');}finally{setExporting(false);}
   };
-
-  const genZRead = async () => {
-    const c = parseFloat(cash);
-    if (isNaN(c)) { toast.error('Enter valid cash amount.'); return; }
-    try {
-      const { data } = await reportsApi.zread(c);
-      if (data.Success) { setZread(data.Data); setShowZ(false); toast.success('Z-Read done. Session closed.'); }
-    } catch { toast.error('Z-Read failed.'); }
+  const applyRange = (from = start, to = end) => {
+    if (!from || !to || from > to) { toast.error('Choose a valid date range.'); return; }
+    setStart(from); setEnd(to); setPage(1); setCashier(''); setPayment(''); setStatus(''); setRange({start:from,end:to});
   };
-
+  const setThisWeek = () => { const date = new Date(); date.setDate(date.getDate()-date.getDay()); applyRange(localDate(date),localDate()); };
+  const setThisMonth = () => { const date = new Date(); applyRange(localDate(new Date(date.getFullYear(),date.getMonth(),1)),localDate()); };
   const doVoid = async () => {
-    if (!voidTx) return;
-    if (!voidReason.trim()) { toast.error('Reason required.'); return; }
-    try {
-      const { data } = await transactionsApi.void(voidTx.Id, voidReason);
-      if (!data.Success) { toast.error(data.Message); return; }
-      toast.success('Transaction voided.');
-      setVoidTx(null); setVoidReason(''); load();
-    } catch { toast.error('Void failed.'); }
+    if (!voidTx || !voidReason.trim()) { toast.error('Reason required.'); return; }
+    setWorking(true);
+    try { const {data} = await transactionsApi.void(voidTx.Id,voidReason.trim()); if(!data.Success) throw new Error(data.Message); setVoidTx(null); setVoidReason(''); setRefresh(value=>value+1); toast.success('Transaction voided.'); }
+    catch(error) { toast.error(error.response?.data?.Message || error.message || 'Void failed.'); }
+    finally { setWorking(false); }
   };
-
-  const setThisWeek = () => {
-    const d = new Date();
-    setStart(new Date(d.setDate(d.getDate() - d.getDay())).toISOString().split('T')[0]);
-    setEnd(today());
-  };
-  const setThisMonth = () => {
-    const d = new Date();
-    setStart(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
-    setEnd(today());
-  };
-
   return (
-    <div className="p-5 max-w-7xl mx-auto space-y-5">
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Reports</h1>
-        <div className="flex gap-2">
-          <button onClick={genXRead}
-            className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
-            <Printer size={14} /> X-Read
-          </button>
-          <button onClick={() => setShowZ(true)}
-            className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
-            <BarChart3 size={14} /> Z-Read / End Day
-          </button>
-        </div>
+    <div className="w-full min-w-0 p-4 sm:p-6 xl:p-8 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><p className="text-sm text-gray-500 mb-1">Reports</p><h1 className="text-2xl font-bold text-gray-800">{title}</h1></div>
+        <div className="flex gap-2"><button disabled={loading || !!error || !result || exporting} onClick={()=>exportReport('print')} className="border bg-white rounded-lg px-4 py-2 disabled:opacity-50">Print</button><button disabled={loading || !!error || !result || exporting} onClick={()=>exportReport('csv')} className="bg-green-700 text-white rounded-lg px-4 py-2 disabled:opacity-50">{exporting?'Preparing…':'Export CSV'}</button></div>
       </div>
-
+<>
+      {!inventory && <>
       {/* Date filter */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-wrap gap-3 items-center">
         <span className="text-sm text-gray-600">From</span>
@@ -214,393 +108,29 @@ export default function ReportsPage() {
         <span className="text-sm text-gray-600">To</span>
         <input type="date" value={end} onChange={e => setEnd(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-        <button onClick={() => { load(); loadSlowMovingItems(); loadFastMovingItems();}} disabled={loading}
-          className="flex items-center gap-1.5 bg-green-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+        <button onClick={() => applyRange()} disabled={loading}
+          className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
           <Search size={14} />{loading ? 'Loading…' : 'Search'}
         </button>
         <div className="flex gap-2 ml-auto">
-          <button onClick={() => { setStart(today()); setEnd(today()); }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs hover:bg-gray-50 transition">Today</button>
+          <button onClick={() => applyRange(localDate(),localDate())} className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs hover:bg-gray-50 transition">Today</button>
           <button onClick={setThisWeek} className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs hover:bg-gray-50 transition">This Week</button>
           <button onClick={setThisMonth} className="border border-gray-300 rounded-lg px-3 py-1.5 text-xs hover:bg-gray-50 transition">This Month</button>
         </div>
       </div>
 
-      {/* Summary cards */}
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            ['Net Sales', php(summary.TotalSales), 'text-green-600'],
-            ['Transactions', summary.TotalCount, 'text-blue-600'],
-            ['Discounts', php(summary.TotalDiscount), 'text-red-600'],
-            ['VAT Collected', php(summary.TotalVat), 'text-teal-600'],
-            ['Items Sold', summary.TotalItems, 'text-purple-600'],
-          ].map(([label, value, color]) => (
-            <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-              <div className="text-xs text-gray-500 uppercase mb-1">{label}</div>
-              <div className={'text-xl font-bold ' + color}>{value}</div>
-            </div>
-          ))}
-        </div>
-      )}
 
-      {xread && (
-  <div className="bg-white rounded-xl border border-teal-200 shadow-sm p-5">
-
-    {/* HEADER */}
-    <div className="flex items-center gap-2 mb-4">
-      <Printer size={16} className="text-teal-600" />
-      <h2 className="font-bold text-gray-800">
-        X-Read — {new Date(xread.GeneratedAt).toLocaleTimeString('en-PH', {
-          hour: '2-digit',
-          minute: '2-digit'
-        })}
-      </h2>
-
-      <button
-        onClick={() => setXread(null)}
-        className="ml-auto text-xs text-gray-400 hover:text-gray-600"
-      >
-        ✕ Close
-      </button>
-    </div>
-
-    {/* =========================
-        X-READ SUMMARY
-    ========================= */}
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-      {[
-        ['Cashier', xread.Cashier],
-        ['Terminal', xread.Terminal],
-        ['Transactions', xread.TotalTransactions],
-        ['Items Sold', xread.ItemsSold],
-        ['Gross Sales', php(xread.GrossSales)],
-        ['Discounts', php(xread.TotalDiscount)],
-        ['VAT', php(xread.TotalVat)],
-        ['Net Sales', php(xread.NetSales)],
-        ['Cash', php(xread.CashSales)],
-        ['Card', php(xread.CardSales)],
-        ['GCash', php(xread.GCashSales)],
-        ['PhilHealth', php(xread.PhilHealthSales)],
-        ['Returns', php(xread.RefundAmount)],
-        ['Voids', php(xread.VoidAmount)],
-      ].map(([k, v]) => (
-        <div key={k}>
-          <div className="text-gray-400 text-xs">{k}</div>
-          <div className="font-semibold text-gray-800">{v}</div>
-        </div>
-      ))}
-    </div>
-
-    {/* LINE BREAK / SPACING */}
-    <div className="my-5 border-t border-gray-200"></div>
-
-    {/* =========================
-        PRODUCT BREAKDOWN
-    ========================= */}
-    {xread?.TransactionItems?.length > 0 && (
-      <div>
-
-        <h3 className="font-semibold text-gray-800 mb-3">
-          Products Sold
-        </h3>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
-
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
-              <tr>
-                <th className="text-left p-2">Product</th>
-                <th className="text-left p-2">Barcode</th>
-                <th className="text-right p-2">Qty</th>
-                <th className="text-right p-2">Unit Price</th>
-                <th className="text-right p-2">Total</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {xread.TransactionItems.map((item) => (
-                <tr key={item.Id} className="border-t">
-                  <td className="p-2">{item.ProductName}</td>
-                  <td className="p-2 text-gray-500">{item.ProductBarcode}</td>
-                  <td className="p-2 text-right">{item.Quantity}</td>
-                  <td className="p-2 text-right">{php(item.UnitPrice)}</td>
-                  <td className="p-2 text-right font-semibold">
-                    {php(item.LineTotal)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-
-          </table>
-        </div>
-
-      </div>
-    )}
-
-  </div>
-)}
-
-      {/* Z-Read inline panel */}
-      {zread && (
-        <div className="bg-white rounded-xl border border-red-200 shadow-sm p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 size={16} className="text-red-600" />
-            <h2 className="font-bold text-gray-800">Z-Read — Session Closed</h2>
-            <button onClick={() => setZread(null)} className="ml-auto text-xs text-gray-400 hover:text-gray-600">✕ Close</button>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
-            {[
-              ['Net Sales', php(zread.NetSales)], ['Opening Cash', php(zread.OpeningCash)],
-              ['Expected Cash', php(zread.ExpectedCash)], ['Actual Cash', php(zread.ClosingCash)],
-              ['Cash Variance', php(zread.CashVariance)], ['Returns', php(zread.RefundAmount)],
-              ['Transactions', zread.TotalTransactions], ['Items Sold', zread.ItemsSold],
-            ].map(([k, v]) => (
-              <div key={k}>
-                <div className="text-gray-400 text-xs">{k}</div>
-                <div className={'font-semibold ' + (k === 'Cash Variance' && zread.CashVariance < 0 ? 'text-red-600' : 'text-gray-800')}>{v}</div>
-              </div>
-            ))}
-          </div>
-          {zread.TopProducts?.length > 0 && (
-            <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Top Products</div>
-              <div className="flex flex-wrap gap-2">
-                {zread.TopProducts.slice(0, 5).map(p => (
-                  <div key={p.ProductName} className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs">
-                    <span className="font-medium text-gray-800">{p.ProductName}</span>
-                    <span className="text-gray-400 ml-2">{p.QuantitySold} sold · {php(p.Revenue)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Transaction table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <span className="font-semibold text-gray-800">Transaction History</span>
-          <span className="ml-2 text-sm text-gray-400">({txList.length})</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left">Receipt #</th>
-                <th className="px-4 py-3 text-left">Date & Time</th>
-                <th className="px-4 py-3 text-left">Cashier</th>
-                <th className="px-4 py-3 text-left">Type</th>
-                <th className="px-4 py-3 text-left">Payment</th>
-                <th className="px-4 py-3 text-right">Discount</th>
-                <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3 text-center">Status</th>
-                {canVoid && <th className="px-4 py-3 text-center">Action</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {txList.map(tx => (
-                <tr key={tx.Id ?? tx.ReceiptNumber}
-                  className={'hover:bg-gray-50 transition ' + (tx.IsVoided ? 'opacity-60 bg-red-50' : tx.TransactionType === 'Return' ? 'bg-amber-50' : '')}>
-                  <td className="px-4 py-2.5 font-mono text-xs text-blue-600">{tx.ReceiptNumber}</td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">{fmtDt(tx.TransactionDate)}</td>
-                  <td className="px-4 py-2.5 text-gray-700">{tx.CashierName}</td>
-                  <td className="px-4 py-2.5">
-                    <span className={
-                      'px-2 py-0.5 rounded-full text-xs font-medium ' +
-                      (tx.TransactionType === 'Return' ? 'bg-amber-100 text-amber-700' :
-                        tx.TransactionType === 'Void' ? 'bg-red-100   text-red-700' :
-                          'bg-blue-100  text-blue-700')
-                    }>{tx.TransactionType}</span>
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-600 text-xs">{tx.PaymentMethod}</td>
-                  <td className="px-4 py-2.5 text-right text-red-500 text-xs">
-                    {tx.DiscountAmount > 0 ? '− ' + php(tx.DiscountAmount) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-bold text-green-600">{php(tx.TotalAmount)}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    <span className={
-                      'px-2 py-0.5 rounded-full text-xs font-medium ' +
-                      (tx.IsVoided ? 'bg-red-100   text-red-700' :
-                        tx.TransactionType === 'Return' ? 'bg-amber-100 text-amber-700' :
-                          'bg-green-100 text-green-700')
-                    }>
-                      {tx.IsVoided ? 'VOIDED' : tx.TransactionType === 'Return' ? 'RETURN' : 'PAID'}
-                    </span>
-                  </td>
-                  {canVoid && (
-                    <td className="px-4 py-2.5 text-center">
-                      {!tx.IsVoided && tx.TransactionType === 'Sale' && (
-                        <button onClick={() => { setVoidTx(tx); setVoidReason(''); }}
-                          className="text-red-400 hover:text-red-600 transition" title="Void">
-                          <Ban size={15} />
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {txList.length === 0 && !loading && (
-                <tr><td colSpan={9} className="text-center py-12 text-gray-400">No transactions in this range</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Fast Moving Items */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <span className="font-semibold text-gray-800">Fast Moving Items</span>
-          <span className="ml-2 text-sm text-gray-400">({fastMovingItems.length})</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left">Rank</th>
-                <th className="px-4 py-3 text-left">Product Name</th>
-                <th className="px-4 py-3 text-left">Qty Sold</th>
-                <th className="px-4 py-3 text-left">Total Sales</th>
-                <th className="px-4 py-3 text-left">Avg Price</th>
-                <th className="px-4 py-3 text-right">Stock</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 fmi">
-              {fastMovingItems.map(fstmovingitm => (
-                <tr key={fstmovingitm.ProductId}
-                  className={'hover:bg-gray-50 transition'}>
-                  <td className="px-4 py-2.5 font-mono text-xs text-blue-600">{fstmovingitm.Rank}</td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">{fstmovingitm.ProductName}</td>
-                  <td className="px-4 py-2.5 text-gray-700">{fstmovingitm.QuantitySold}</td>
-                  <td className="px-4 py-2.5">
-                    <span className={
-                      'px-4 py-2.5 text-green-700 font-bold'
-                    }>{php(fstmovingitm.TotalSales)}</span>
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-600 text-xs">{php(fstmovingitm.AverageSellingPrice)}</td>
-                  <td className={"px-4 py-2.5 text-right " + (fstmovingitm.StockQuantity <= 10 ? "text-red-500" : "text-green-500") + " text-xs"}>
-                    {fstmovingitm.StockQuantity}
-                  </td>
-                </tr>
-              ))}
-              {fastMovingItems.length === 0 && !loading && (
-                <tr><td colSpan={9} className="text-center py-12 text-gray-400">No transactions in this range</td></tr>
-              )}
-            </tbody>
-          </table>
-          {fastMovingItems.length > 0 && (
-            <div className="flex justify-end items-center gap-2 p-4 border-t">
-              <button
-                disabled={fastPage === 1}
-                onClick={() => setFastPage(p => p - 1)}
-                className="px-3 py-1 border rounded disabled:opacity-50"
-              >
-                Previous
-              </button>
-
-              <span className="text-sm">
-                Page {fastPage} of {fastTotalPages}
-              </span>
-
-              <button
-
-                disabled={fastPage === fastTotalPages}
-                onClick={() => setFastPage(p => p + 1)}
-                className="px-3 py-1 border rounded disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Slow Moving Items */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <span className="font-semibold text-gray-800">Slow Moving Items</span>
-          <span className="ml-2 text-sm text-gray-400">({slowMovingItems.length})</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left">Rank</th>
-                <th className="px-4 py-3 text-left">Product Name</th>
-                <th className="px-4 py-3 text-left">Qty Sold</th>
-                <th className="px-4 py-3 text-left">Total Sales</th>
-                <th className="px-4 py-3 text-left">Avg Price</th>
-                <th className="px-4 py-3 text-right">Stock</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 fmi">
-              {slowMovingItems.map(slwmovingitm => (
-                <tr key={slwmovingitm.ProductId}
-                  className={'hover:bg-gray-50 transition'}>
-                  <td className="px-4 py-2.5 font-mono text-xs text-blue-600">{slwmovingitm.Rank}</td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">{slwmovingitm.ProductName}</td>
-                  <td className="px-4 py-2.5 text-gray-700">{slwmovingitm.QuantitySold}</td>
-                  <td className="px-4 py-2.5">
-                    <span className={
-                      'px-4 py-2.5 text-green-700 font-bold'
-                    }>{php(slwmovingitm.TotalSales)}</span>
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-600 text-xs">{php(slwmovingitm.AverageSellingPrice)}</td>
-                  <td className={"px-4 py-2.5 text-right " + (slwmovingitm.StockQuantity <= 10 ? "text-red-500" : "text-green-500") + " text-xs"}>
-                    {slwmovingitm.StockQuantity}
-                  </td>
-                </tr>
-              ))}
-              {slowMovingItems.length === 0 && !loading && (
-                <tr><td colSpan={9} className="text-center py-12 text-gray-400">No transactions in this range</td></tr>
-              )}
-            </tbody>
-          </table>
-          {slowMovingItems.length > 0 && (
-            <div className="flex justify-end items-center gap-2 p-4 border-t">
-              <button
-                disabled={slowPage === 1}
-                onClick={() => setSlowPage(p => p - 1)}
-                className="px-3 py-1 border rounded disabled:opacity-50"
-              >
-                Previous
-              </button>
-
-              <span className="text-sm">
-                Page {slowPage} of {slowTotalPages}
-              </span>
-
-              <button
-
-                disabled={slowPage === slowTotalPages}
-                onClick={() => setSlowPage(p => p + 1)}
-                className="px-3 py-1 border rounded disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-
-
-      {/* Z-Read modal */}
-      {showZ && (
-        <Modal title="Z-Read / End of Day" onClose={() => setShowZ(false)}>
-          <p className="text-sm text-gray-600 mb-4">Enter actual cash in drawer for reconciliation.</p>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Closing Cash (PHP)</label>
-          <input type="number" step="0.01" value={cash} onChange={e => setCash(e.target.value)} autoFocus
-            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-lg text-right font-bold focus:ring-2 focus:ring-blue-500 outline-none mb-4"
-            placeholder="0.00" />
-          <div className="flex gap-3">
-            <button onClick={() => setShowZ(false)} className="flex-1 border border-gray-300 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
-            <button onClick={genZRead} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2.5 text-sm font-bold transition">Generate Z-Read</button>
-          </div>
-        </Modal>
-      )}
-
+      <p className="text-sm text-gray-500">Showing {range.start} to {range.end}</p>
+      </>}
+      {inventory && <div className="flex flex-wrap gap-3 items-center text-sm text-gray-600"><span>Current inventory snapshot</span>{report==='expiry' && <label>Include batches expiring within <select value={expiryDays} onChange={e=>setExpiryDays(Number(e.target.value))} className="border rounded-lg p-2 ml-2">{[30,60,90,180,365].map(days=><option key={days} value={days}>{days} days</option>)}</select> (includes expired batches)</label>}<button onClick={()=>setRefresh(value=>value+1)} className="border rounded-lg px-3 py-2">Refresh</button></div>}
+      {report==='transactions' && <div className="flex flex-wrap gap-3 bg-white border rounded-xl p-4"><label className="text-sm">Cashier<select aria-label="Cashier filter" value={cashier} onChange={e=>setCashier(e.target.value)} className="block border rounded-lg p-2 mt-1"><option value="">All cashiers</option>{Array.from(new Map((result ?? []).map(tx=>[tx.UserId,tx.CashierName]))).map(([id,name])=><option key={id} value={String(id)}>{name}</option>)}</select></label><label className="text-sm">Payment<select aria-label="Payment filter" value={payment} onChange={e=>setPayment(e.target.value)} className="block border rounded-lg p-2 mt-1"><option value="">All methods</option>{Array.from(new Set((result ?? []).map(tx=>tx.PaymentMethod))).map(method=><option key={method}>{method}</option>)}</select></label><label className="text-sm">Status<select aria-label="Status filter" value={status} onChange={e=>setStatus(e.target.value)} className="block border rounded-lg p-2 mt-1"><option value="">All transactions</option><option value="Sale">Paid sales</option><option value="Return">Returns</option><option value="voided">Voided</option></select></label><button onClick={()=>{setCashier('');setPayment('');setStatus('');}} className="text-sm underline">Clear filters</button></div>}
+      {loading && <div role="status" className="bg-white rounded-xl border p-6 text-gray-500">Loading report…</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700">{error} <button onClick={()=>setRefresh(value=>value+1)} className="underline ml-2">Retry</button></div>}
+      {!loading && !error && report === 'sales' && <SalesSummaryReport summary={result?.summary} previous={result?.previous} period={period}/>}
+      {!loading && !error && report === 'transactions' && <TransactionHistoryReport txList={transactions} loading={loading} canVoid={canVoid} setVoidTx={setVoidTx} setVoidReason={setVoidReason}/>}
+      {!loading && !error && ['fast-moving','slow-moving'].includes(report) && <MovementReport title={title} items={result?.Items ?? []} loading={loading} page={page} totalPages={Math.max(1,Math.ceil((result?.TotalRecords ?? 0)/10))} setPage={setPage}/>}
+      {!loading && !error && inventory && <InventoryReport items={result ?? []} expiry={report==='expiry'}/>}
+      </>
       {/* Void modal */}
       {voidTx && (
         <Modal title={'Void ' + voidTx.ReceiptNumber} onClose={() => setVoidTx(null)}>
@@ -610,7 +140,7 @@ export default function ReportsPage() {
             className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-400 outline-none mb-4" />
           <div className="flex gap-3">
             <button onClick={() => setVoidTx(null)} className="flex-1 border border-gray-300 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
-            <button onClick={doVoid} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2.5 text-sm font-bold transition">Void Transaction</button>
+            <button disabled={working} onClick={doVoid} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-lg py-2.5 text-sm font-bold transition">Void Transaction</button>
           </div>
         </Modal>
       )}

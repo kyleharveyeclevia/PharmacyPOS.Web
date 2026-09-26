@@ -12,7 +12,7 @@
 | HTTP Client  | Axios with JWT interceptor                      |
 | Backend      | ASP.NET Core 8 Web API                          |
 | Data Access  | **Dapper only — zero Entity Framework**         |
-| Database     | SQL Server 2019+ / LocalDB / Express            |
+| Database     | SQL Server 2022+ / LocalDB / Express            |
 | Auth         | JWT Bearer tokens + BCrypt password hashing     |
 
 ---
@@ -75,14 +75,7 @@ PharmacyPOS_Web/
 
 ### Step 1 — Database
 
-Open **SQL Server Management Studio (SSMS)** and run:
-
-```
-database/00_SETUP_ALL.sql
-```
-
-This single file creates the `RxPharmacyDB` database, all 9 tables, seeds
-25 products, 4 customers, 5 suppliers, 3 users, and creates all 26 stored procedures.
+Ensure SQL Server is running. The backend creates and synchronizes the database, 12 application tables, and 42 stored procedures when it starts. See [database/README.md](database/README.md) for schema changes and migrations. New databases contain only the default admin user (`admin` / `dev-admin-change-me`) and no transaction data. Initialize your branches and terminals separately. Existing user passwords are never reset by startup.
 
 ### Step 2 — Backend
 
@@ -247,3 +240,7 @@ Login  →  sp_OpenSession  →  JWT contains sessionId
 **PascalCase JSON throughout.** `Program.cs` sets `PropertyNamingPolicy = null` for API responses. `PharmacyService.cs` sets the same for OPENJSON serialization. This means SP `WITH()` column names match C# property names exactly.
 
 **OPENJSON fix.** `sp_ProcessSale` and `sp_ProcessReturn` parse JSON into a `@TableVariable` first, then JOIN in the `UPDATE ... FROM`. Inline OPENJSON subqueries inside `UPDATE ... FROM` cause SQL Server alias resolution errors.
+
+## Automatic database setup
+
+The backend now creates and synchronizes the schema at startup. See [database/README.md](database/README.md) for adding columns, migrations, inventory batches, and running isolated SQL integration tests. Numbered database scripts are historical snapshots; startup uses the per-object SQL files.

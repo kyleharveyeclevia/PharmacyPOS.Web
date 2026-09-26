@@ -53,7 +53,10 @@ export const transactionsApi = {
   void: (id, reason) => api.post('/transactions/' + id + '/void', { Reason: reason }),
   return: (id, items, reason) => api.post('/transactions/' + id + '/return', { Items: items, Reason: reason }),
 };
+export const receiptsApi = { list: params => api.get('/receipts', {params}) };
 export const reportsApi = {
+  lowStock: () => api.get('/reports/inventory/low-stock'),
+  expiry: days => api.get('/reports/inventory/expiry?days='+days),
   dashboard: () => api.get('/reports/dashboard'), xread: () => api.get('/reports/xread'), zread: closingCash => api.post('/reports/zread', { ClosingCash }),
   summary: (start, end) => api.get('/reports/summary?startDate=' + start + '&endDate=' + end), sessions: date => api.get('/reports/sessions?date=' + date),
   getFastMovingItems: (start, end) => api.get('/reports/getFastMovingItems?startDate=' + start + '&endDate=' + end),

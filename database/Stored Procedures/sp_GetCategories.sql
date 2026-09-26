@@ -1,0 +1,12 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[sp_GetCategories]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT Id, Name, Description FROM Categories WHERE IsDeleted = 0 ORDER BY Name;
+END
+GO

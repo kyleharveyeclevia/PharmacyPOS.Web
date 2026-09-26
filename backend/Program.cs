@@ -59,7 +59,10 @@ builder.Services.AddCors(o => o.AddPolicy("ReactApp", p =>
     p.WithOrigins("http://localhost:5173", "http://localhost:3000")
      .AllowAnyMethod().AllowAnyHeader().AllowCredentials()));
 
+builder.Services.AddSingleton<DatabaseSynchronizer>();
 var app = builder.Build();
+var scriptsPath = builder.Configuration["Database:ScriptsPath"] ?? (Directory.Exists(Path.Combine(app.Environment.ContentRootPath, "..", "database", "Tables")) ? Path.Combine(app.Environment.ContentRootPath, "..", "database") : Path.Combine(AppContext.BaseDirectory, "database"));
+await app.Services.GetRequiredService<DatabaseSynchronizer>().SynchronizeAsync(Path.GetFullPath(scriptsPath, app.Environment.ContentRootPath));
 if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
 app.UseCors("ReactApp");
 app.UseAuthentication();

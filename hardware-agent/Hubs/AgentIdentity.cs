@@ -23,23 +23,12 @@ public sealed class AgentIdentity(string macId, string deviceName, string locati
         Username: Environment.UserName);
 
     /// <summary>
-    /// Picks the MAC address of the first "real" network adapter (skips loopback
-    /// and virtual/tunnel adapters). This is the kind of hardware identifier a
-    /// browser cannot obtain — hence running this as a native agent.
+    /// Selects a valid MAC before choosing an adapter. Prefers physical adapters,
+    /// then active connections, then Ethernet. An offline adapter can still identify the machine.
     /// </summary>
     public static string? GetPrimaryMacAddress()
     {
-        var nic = NetworkInterface.GetAllNetworkInterfaces()
-            .Where(n => n.OperationalStatus == OperationalStatus.Up)
-            .Where(n => n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-            .Where(n => n.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
-            .OrderByDescending(n => n.NetworkInterfaceType == NetworkInterfaceType.Ethernet) // prefer wired
-            .FirstOrDefault();
-
-        var bytes = nic?.GetPhysicalAddress()?.GetAddressBytes();
-        if (bytes is null || bytes.Length == 0) return null;
-
-        return string.Join(":", bytes.Select(b => b.ToString("X2")));
+        return MacAddressSelector.Select(MacAddressSelector.ReadAdapters());
     }
 
     /// <summary>First non-loopback IPv4 address on an up interface — the machine's LAN-facing address.</summary>

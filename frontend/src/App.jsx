@@ -8,6 +8,8 @@ import DashboardPage from './pages/DashboardPage.jsx';
 import POSPage from './pages/POSPage.jsx';
 import InventoryPage from './pages/InventoryPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
+import ReceiptsPage from './pages/ReceiptsPage.jsx';
+import {REPORTS} from './pages/reports/reportUtils.js';
 import UsersPage from './pages/UsersPage.jsx';
 import ImportProductsPage from './pages/ImportProductsPage.jsx';
 import CategoriesPage from './pages/CategoriesPage.jsx';
@@ -67,7 +69,7 @@ export default function App() {
 
           {/* PROTECTED LAYOUT */}
           <Route path="/" element={<ProtectedLayout />}>
-            
+
             <Route index element={<Navigate to="/dashboard" replace />} />
 
             <Route path="dashboard" element={<DashboardPage />} />
@@ -87,7 +89,11 @@ export default function App() {
             <Route path="suppliers" element={<SuppliersPage />} />
             <Route path="inventory/import" element={<ImportProductsPage />} />
             <Route path="customers" element={<CustomersPage />} />
-            <Route path="reports" element={<ReportsPage />} />
+            <Route path="utilities" element={<Navigate to="/utilities/receipts" replace/>}/>
+            <Route path="utilities/receipts" element={<ReceiptsPage/>}/>
+            <Route path="reports" element={<Navigate to="/reports/sales" replace />} />
+            <Route path="reports/shift" element={<Navigate to="/reports/sales" replace />} />
+            {REPORTS.map(({id}) => <Route key={id} path={`reports/${id}`} element={<AuthGuard roles={REPORTS.find(item=>item.id===id)?.roles}><ReportsPage key={id} report={id}/></AuthGuard>} />)}
 
             <Route
               path="users"

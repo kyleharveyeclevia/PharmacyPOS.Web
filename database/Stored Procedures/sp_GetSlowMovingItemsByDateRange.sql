@@ -1,9 +1,8 @@
-USE [RxPharmacyDB]
-GO
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+
 CREATE OR ALTER PROCEDURE [dbo].[sp_GetSlowMovingItemsByDateRange]
     @StartDate DATE,
     @EndDate   DATE
@@ -37,25 +36,34 @@ BEGIN
         ) AS [Rank]
 
     FROM Products P
-    LEFT JOIN 
+
+    --LEFT JOIN TransactionItems B
+    --    ON P.Id = B.ProductId
+
+    --LEFT JOIN Transactions A
+    --    ON A.Id = B.TransactionId
+    --    AND A.TransactionDate >= @StartDate AND A.TransactionDate < DATEADD(DAY,1,CONVERT(datetime2,@EndDate))
+    --    AND A.IsVoided = 0 AND A.TransactionType = 'Sale'
+    LEFT JOIN
     (
-        SELECT 
-            B.ProductId 
+        SELECT
+            B.ProductId
             ,B.Quantity
             ,B.LineTotal
-        FROM 
+        FROM
             Transactions A
             LEFT JOIN TransactionItems B ON A.Id = B.TransactionId
         WHERE
-            CAST(A.TransactionDate AS DATE) BETWEEN @StartDate AND @EndDate
-            AND ISNULL(A.IsVoided, 0) = 0
+            A.TransactionDate >= @StartDate AND A.TransactionDate < DATEADD(DAY,1,CONVERT(datetime2,@EndDate))
+            AND A.IsVoided = 0 AND A.TransactionType = 'Sale'
     ) AS T ON P.Id = T.ProductId
 
     GROUP BY
         P.Id,
         P.Name,
-        P.StockQuantity
+        P.StockQuantity, P.ReorderLevel
 
     ORDER BY
         QuantitySold ASC;
 END
+GO

@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
+import {sendReceiptToAgent} from '../services/agentPrint.js';
 
 const HardwareAgentContext = createContext(null);
 
@@ -8,6 +9,8 @@ const HARDWARE_AGENT_URL =
   'http://localhost:5090/hubs/hardware-agent';
 
 export function HardwareAgentProvider({ children }) {
+  const connectionRef = useRef(null);
+  const printReceipt = useCallback((text, printer = null) => sendReceiptToAgent(connectionRef.current, text, printer), []);
   const [agents, setAgents] = useState([]);
   const [isConnecting, setIsConnecting] = useState(true);
   const [isAvailable, setIsAvailable] = useState(false);
@@ -19,6 +22,8 @@ export function HardwareAgentProvider({ children }) {
       .withUrl(HARDWARE_AGENT_URL)
       .withAutomaticReconnect()
       .build();
+
+    connectionRef.current = connection;
 
     const refreshInfo = async () => {
       if (cancelled) return;
@@ -86,6 +91,7 @@ export function HardwareAgentProvider({ children }) {
 
     return () => {
       cancelled = true;
+      if (connectionRef.current === connection) connectionRef.current = null;
       connection.stop();
     };
   }, []);
@@ -94,12 +100,13 @@ export function HardwareAgentProvider({ children }) {
     () => ({
       isConnecting,
       isAvailable,
+      printReceipt,
       agents,
       macAddresses: agents
         .map(agent => agent.macId)
         .filter(Boolean),
     }),
-    [agents, isConnecting, isAvailable]
+    [agents, isConnecting, isAvailable, printReceipt]
   );
 
   useEffect(() => {

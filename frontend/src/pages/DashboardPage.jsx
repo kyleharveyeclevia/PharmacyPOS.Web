@@ -95,27 +95,27 @@ export default function DashboardPage() {
     });
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="w-full min-w-0 p-4 sm:p-6 xl:p-8 2xl:p-10">
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between 2xl:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">
+          <h1 className="text-2xl font-bold text-gray-800 xl:text-3xl 2xl:text-4xl">
             Dashboard
           </h1>
 
-          <p className="mt-0.5 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 xl:text-base">
             {fmtDate(time)}
           </p>
         </div>
 
-        <div className="text-right">
-          <div className="font-mono text-2xl font-bold text-green-700">
+        <div className="sm:text-right">
+          <div className="font-mono text-2xl font-bold text-green-700 xl:text-3xl 2xl:text-4xl">
             {fmtTime(time)}
           </div>
 
           <button
             onClick={load}
-            className="mt-1 text-xs text-gray-400 transition-colors hover:text-green-600"
+            className="mt-2 text-sm text-gray-500 transition-colors hover:text-green-600"
           >
             ↺ Refresh
           </button>
@@ -123,7 +123,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat Cards */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:gap-6 2xl:mb-8">
         {stats.map(
           ({
             label,
@@ -136,26 +136,26 @@ export default function DashboardPage() {
             <div
               key={label}
               className={
-                'rounded-xl border bg-white p-5 shadow-sm ' +
+                'min-w-0 rounded-xl border bg-white p-5 shadow-sm xl:p-6 2xl:min-h-52 2xl:p-8 ' +
                 border
               }
             >
               <div
                 className={
-                  'mb-3 inline-flex rounded-lg p-2 ' +
+                  'mb-3 inline-flex rounded-lg p-2 2xl:mb-5 2xl:p-3 ' +
                   bg +
                   ' ' +
                   text
                 }
               >
-                <Icon size={20} />
+                <Icon size={20} className="h-5 w-5 2xl:h-7 2xl:w-7" />
               </div>
 
-              <div className="text-2xl font-bold text-gray-800">
+              <div className="break-words text-2xl font-bold text-gray-800 xl:text-3xl 2xl:text-4xl">
                 {value}
               </div>
 
-              <div className="mt-1 text-sm text-gray-500">
+              <div className="mt-2 text-sm text-gray-500 xl:text-base">
                 {label}
               </div>
             </div>
@@ -164,24 +164,24 @@ export default function DashboardPage() {
       </div>
 
       {/* Tables */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:gap-8">
         {/* Recent Transactions */}
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4 text-sm font-semibold text-gray-800">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-5 py-4 text-sm font-semibold text-gray-800 xl:px-6 xl:py-5 xl:text-base 2xl:text-lg">
             Recent Transactions
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+            <table className="w-full text-sm 2xl:text-base">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-500 2xl:text-sm">
                 <tr>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-left xl:px-6 xl:py-4">
                     Receipt
                   </th>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-left xl:px-6 xl:py-4">
                     Cashier
                   </th>
-                  <th className="px-4 py-3 text-right">
+                  <th className="px-4 py-3 text-right xl:px-6 xl:py-4">
                     Total
                   </th>
                 </tr>
@@ -193,15 +193,15 @@ export default function DashboardPage() {
                     key={tx.Id}
                     className="hover:bg-gray-50"
                   >
-                    <td className="px-4 py-2.5 font-mono text-xs text-green-600">
+                    <td className="px-4 py-2.5 font-mono text-xs text-green-600 xl:px-6 xl:py-4 2xl:text-sm">
                       {tx.ReceiptNumber}
                     </td>
 
-                    <td className="px-4 py-2.5 text-xs text-gray-700">
+                    <td className="px-4 py-2.5 text-xs text-gray-700 xl:px-6 xl:py-4 2xl:text-base">
                       {tx.CashierName}
                     </td>
 
-                    <td className="px-4 py-2.5 text-right font-bold text-green-600">
+                    <td className="whitespace-nowrap px-4 py-2.5 text-right font-bold text-green-600 xl:px-6 xl:py-4">
                       {php(tx.TotalAmount)}
                     </td>
                   </tr>
@@ -211,7 +211,7 @@ export default function DashboardPage() {
                   <tr>
                     <td
                       colSpan={3}
-                      className="px-4 py-8 text-center text-sm text-gray-400"
+                      className="px-4 py-8 text-center text-sm text-gray-400 xl:py-12 2xl:py-16 2xl:text-base"
                     >
                       No transactions today
                     </td>
@@ -223,27 +223,27 @@ export default function DashboardPage() {
         </div>
 
         {/* Low Stock */}
-        <div className="overflow-hidden rounded-xl border border-red-200 bg-white shadow-sm">
-          <div className="flex items-center gap-2 border-b border-red-100 px-5 py-4 text-sm font-semibold text-gray-800">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-red-200 bg-white shadow-sm">
+          <div className="flex items-center gap-2 border-b border-red-100 px-5 py-4 text-sm font-semibold text-gray-800 xl:px-6 xl:py-5 xl:text-base 2xl:text-lg">
             <AlertTriangle
               size={15}
-              className="text-red-500"
+              className="text-red-500 2xl:h-5 2xl:w-5"
             />
 
             Low Stock Alerts
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-red-50 text-xs uppercase text-gray-500">
+            <table className="w-full text-sm 2xl:text-base">
+              <thead className="bg-red-50 text-xs uppercase text-gray-500 2xl:text-sm">
                 <tr>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-left xl:px-6 xl:py-4">
                     Product
                   </th>
-                  <th className="px-4 py-3 text-center">
+                  <th className="px-4 py-3 text-center xl:px-6 xl:py-4">
                     Stock
                   </th>
-                  <th className="px-4 py-3 text-center">
+                  <th className="px-4 py-3 text-center xl:px-6 xl:py-4">
                     Min
                   </th>
                 </tr>
@@ -255,21 +255,21 @@ export default function DashboardPage() {
                     key={p.Id}
                     className="hover:bg-gray-50"
                   >
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 xl:px-6 xl:py-4">
                       <div className="font-medium text-gray-800">
                         {p.Name}
                       </div>
 
-                      <div className="text-xs text-gray-400">
+                      <div className="mt-1 text-xs text-gray-400 2xl:text-sm">
                         {p.CategoryName}
                       </div>
                     </td>
 
-                    <td className="px-4 py-2.5 text-center font-bold text-red-600">
+                    <td className="px-4 py-2.5 text-center font-bold text-red-600 xl:px-6 xl:py-4">
                       {p.StockQuantity}
                     </td>
 
-                    <td className="px-4 py-2.5 text-center text-gray-500">
+                    <td className="px-4 py-2.5 text-center text-gray-500 xl:px-6 xl:py-4">
                       {p.ReorderLevel}
                     </td>
                   </tr>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
                   <tr>
                     <td
                       colSpan={3}
-                      className="px-4 py-8 text-center text-sm text-gray-400"
+                      className="px-4 py-8 text-center text-sm text-gray-400 xl:py-12 2xl:py-16 2xl:text-base"
                     >
                       All stock levels OK ✓
                     </td>

@@ -39,10 +39,21 @@ if (localPortArg is not null)
     localApiPort = parsedPort;
 }
 
-var macId = AgentIdentity.GetPrimaryMacAddress();
+var macArgument = GetArg(args, "--mac-address");
+if (Array.IndexOf(args, "--mac-address") >= 0 && (macArgument is null || macArgument.StartsWith("--")))
+{
+    Console.Error.WriteLine("--mac-address requires a MAC address, for example AA:BB:CC:DD:EE:FF.");
+    Environment.ExitCode = 1;
+    return;
+}
+var configuredMac = macArgument ?? builder.Configuration["MacAddress"];
+var macId = configuredMac is null ? AgentIdentity.GetPrimaryMacAddress() : MacAddressSelector.Normalize(configuredMac);
 if (macId is null)
 {
-    Console.WriteLine("Could not determine a MAC address for this machine. Exiting.");
+    Console.Error.WriteLine(configuredMac is null
+        ? "No adapter with a valid MAC address was found. Set MacAddress in appsettings.json or use --mac-address with this terminal's registered MAC address."
+        : "Invalid MAC address. Use six hexadecimal bytes separated by colons or hyphens, or 12 hexadecimal digits.");
+    Environment.ExitCode = 1;
     return;
 }
 

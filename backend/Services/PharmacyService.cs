@@ -52,10 +52,8 @@ namespace PharmacyApi.Services
     {
         private readonly IDbConnectionFactory _db;
         private static readonly JsonSerializerOptions _json = new() { PropertyNamingPolicy = null };
-        private static int _receiptCounter = 1;
-        private static readonly object _lock = new();
         private readonly ILogger<PharmacyService> _logger;
-        private string NextReceipt() { lock (_lock) return $"RCP-{DateTime.Now:yyyyMMdd}-{_receiptCounter++:D4}"; }
+        private static string NextReceipt() => "RCP-" + Guid.NewGuid().ToString("N");
 
         public PharmacyService(IDbConnectionFactory db, ILogger<PharmacyService> logger)
         {
@@ -69,7 +67,7 @@ namespace PharmacyApi.Services
             using var c = _db.Create();
 
             var result = (await c.QueryAsync<ProductDto>("sp_GetAllProducts", commandType: CommandType.StoredProcedure)).ToList();
-            
+
             return result;
         }
         public async Task<List<ProductDto>> SearchProductsAsync(string query)
@@ -94,7 +92,7 @@ namespace PharmacyApi.Services
             _logger.LogInformation($"[SaveProductAsync] {action} started...");
 
             SpResult r = new SpResult { Result = -1, Message="No Actions"};
-           
+
             try
             {
                 using var c = _db.Create();
@@ -145,7 +143,7 @@ namespace PharmacyApi.Services
             {
                 _logger.LogError($"[SaveProductAsync] {action} started...");
             }
-            
+
 
             return (r.Result > 0, r.Message, r.Result > 0 ? r.Result : 0);
         }
@@ -215,7 +213,7 @@ namespace PharmacyApi.Services
                         row.CategoryId = categories.First(c => c.Name == row.CategoryName).Id;
 
                         row.SupplierId = suppliers.First(c => c.Name == row.SupplierName).Id;
-                            
+
 
                         // Save product
                         SpResult r = await c.QueryFirstAsync<SpResult>("sp_AddProduct", new
@@ -259,7 +257,7 @@ namespace PharmacyApi.Services
                             _logger.LogError($"[ImportProductsAsync] Import Products Failed 1: {r.Message}");
                         }
 
-                       
+
                     }
                     catch (Exception ex)
                     {
@@ -310,7 +308,7 @@ namespace PharmacyApi.Services
         {
             using var c = _db.Create();
             var r = await c.QueryFirstAsync<SpResult>("sp_UpdateProduct", new {
-                req.Id, req.Barcode, req.Name, req.GenericName, req.Description, req.Unit,
+                req.Id, req.Barcode, req.Name, req.BrandName, req.GenericName, req.Description, req.DosageStrength, req.BatchNo, req.Unit,
                 req.CategoryId, req.SupplierId, req.CostPrice, req.SellingPrice,
                 req.ReorderLevel, req.RequiresPrescription,
                 IsActive = !req.IsActive,
@@ -324,7 +322,7 @@ namespace PharmacyApi.Services
         { using var c = _db.Create(); return (await c.QueryAsync<CategoryDto>("sp_GetCategories", commandType: CommandType.StoredProcedure)).ToList(); }
 
         public async Task<(bool ok, string msg, int id)> SaveCategoryAsync(CategoryDto req, bool isNew)
-        { 
+        {
             using var c = _db.Create();
 
             if (isNew)
@@ -400,22 +398,23 @@ namespace PharmacyApi.Services
 
         public async Task<List<SupplierDto>> GetSuppliersAsync()
         { using var c=_db.Create(); return (await c.QueryAsync<SupplierDto>("sp_GetSuppliers", commandType: CommandType.StoredProcedure)).ToList(); }
-        
+
 
         // ── SALE ─────────────────────────────────────────────────────────────
         public async Task<(bool ok, string msg, int txId, string receipt)> ProcessSaleAsync(ProcessSaleRequest req, int userId, int sessionId)
         {
+            if (req.Items is null || req.Items.Count == 0 || req.Items.Any(i => i.ProductId <= 0 || i.Quantity <= 0 || i.UnitPrice < 0) || req.DiscountPercent < 0 || req.DiscountPercent > 100 || req.AmountTendered < 0) return (false, "Invalid cart, discount or payment.", 0, "");
             decimal sub = req.Items.Sum(i => i.Quantity * i.UnitPrice);
-            decimal disc, vat, vatPct, total;
+            decimal disc, vat, total;
             if (req.IsScPwd)
             {
-                var x = sub / 1.12m;
-                disc = x * 0.20m; vat = 0m; vatPct = 0m; total = x - disc;
+                var x = Math.Round(sub / 1.12m, 2, MidpointRounding.AwayFromZero);
+                disc = Math.Round(x * 0.20m, 2, MidpointRounding.AwayFromZero); vat = 0m; total = x - disc;
             }
             else
             {
-                disc = sub * (req.DiscountPercent / 100m);
-                vat  = (sub - disc) / 1.12m * 0.12m; vatPct = 12m; total = sub - disc;
+                disc = Math.Round(sub * (req.DiscountPercent / 100m), 2, MidpointRounding.AwayFromZero);
+                vat = Math.Round((sub - disc) / 1.12m * 0.12m, 2, MidpointRounding.AwayFromZero); total = sub - disc;
             }
             decimal change = req.AmountTendered - total;
             if (change < 0) return (false, "Insufficient payment.", 0, "");
@@ -430,9 +429,9 @@ namespace PharmacyApi.Services
             var r = await c.QueryFirstAsync<SaleResult>("sp_ProcessSale", new {
                 ReceiptNumber=receipt, SessionId=sessionId, UserId=userId, CustomerId=req.CustomerId,
                 SubTotal=sub, DiscountAmount=disc, DiscountPercent=effDiscPct,
-                VatAmount=vat, //VatPercent=vatPct, 
+                VatAmount=vat, IsScPwd=req.IsScPwd,
                 TotalAmount=total,
-                AmountTendered=req.AmountTendered, 
+                AmountTendered=req.AmountTendered,
                 Change=change,
                 PaymentMethod=req.PaymentMethod, PrescriptionNumber=req.PrescriptionNumber,
                 Notes=req.Notes, ItemsJson=json, TerminalId = req.TerminalId, VatExemptAmount = req.VatExemptAmount
@@ -505,7 +504,7 @@ namespace PharmacyApi.Services
                 CashSales = sum.CashSales,
                 CardSales = sum.CardSales,
                 GCashSales = sum.GCashSales,
-                PhilHealthSales = sum.PhilHealthSales,
+                PhilHealthSales = sum.PhilHealthSales, HMOSales = sum.HMOSales,
                 RefundAmount = sum.RefundAmount,
                 VoidAmount = sum.VoidAmount,
                 ItemsSold = itm.ItemsSold,
@@ -529,7 +528,7 @@ namespace PharmacyApi.Services
                 TotalTransactions=sum.TotalTransactions, GrossSales=sum.GrossSales,
                 TotalDiscount=sum.TotalDiscount, TotalVat=sum.TotalVat, NetSales=sum.NetSales,
                 CashSales=sum.CashSales, CardSales=sum.CardSales, GCashSales=sum.GCashSales,
-                PhilHealthSales=sum.PhilHealthSales, RefundAmount=sum.RefundAmount,
+                PhilHealthSales=sum.PhilHealthSales, HMOSales=sum.HMOSales, RefundAmount=sum.RefundAmount,
                 VoidAmount=sum.VoidAmount, ItemsSold=sum.ItemsSold,
                 OpeningCash=sess.OpeningCash, ClosingCash=closingCash,
                 ExpectedCash=expected, CashVariance=closingCash-expected,
@@ -594,7 +593,7 @@ namespace PharmacyApi.Services
 
                 // Temporary until total count is added
                 TotalRecords = items.Count == 0 ? 0 : items[0].TotalRecords,
-                TotalPages = 1
+                TotalPages = items.Count == 0 ? 0 : (int)Math.Ceiling(items[0].TotalRecords / (double)pageSize)
             };
 
             return pageResult;
@@ -623,7 +622,7 @@ namespace PharmacyApi.Services
 
                 // Temporary until total count is added
                 TotalRecords = items.Count == 0 ? 0 : items[0].TotalRecords,
-                TotalPages = 1
+                TotalPages = items.Count == 0 ? 0 : (int)Math.Ceiling(items[0].TotalRecords / (double)pageSize)
             };
 
             return pageResult;
@@ -752,7 +751,7 @@ namespace PharmacyApi.Services
         private class SaleResult { public int TransactionId{get;set;} public string Message{get;set;}=""; }
 
         private class XReadSession { public int SessionId{get;set;} public DateTime LoginTime{get;set;} public string Terminal { get; set; } = ""; public decimal OpeningCash{get;set;} public string CashierName{get;set;}=""; }
-        private class XReadSummary { public int TotalTransactions{get;set;} public decimal GrossSales{get;set;} public decimal TotalDiscount{get;set;} public decimal TotalVat{get;set;} public decimal NetSales{get;set;} public decimal CashSales{get;set;} public decimal CardSales{get;set;} public decimal GCashSales{get;set;} public decimal PhilHealthSales{get;set;} public decimal RefundAmount{get;set;} public decimal VoidAmount{get;set;} }
+        private class XReadSummary { public int TotalTransactions{get;set;} public decimal GrossSales{get;set;} public decimal TotalDiscount{get;set;} public decimal TotalVat{get;set;} public decimal NetSales{get;set;} public decimal CashSales{get;set;} public decimal CardSales{get;set;} public decimal GCashSales{get;set;} public decimal PhilHealthSales{get;set;} public decimal HMOSales{get;set;} public decimal RefundAmount{get;set;} public decimal VoidAmount{get;set;} }
         private class XReadItems   { public int ItemsSold{get;set;} }
         private class ZReadSession { public int SessionId{get;set;} public DateTime LoginTime{get;set;} public string Terminal { get; set; } = ""; public decimal OpeningCash{get;set;} public string CashierName{get;set;}=""; }
         private class ZReadSummary : XReadSummary { public int ItemsSold{get;set;} }

@@ -1,9 +1,9 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useHardwareAgent } from '../../context/HardwareAgentContext.jsx';
-import { authApi, reportsApi } from '../../services/api.js';
-import toast from 'react-hot-toast';
+import {REPORTS} from '../../pages/reports/reportUtils.js';
+import ShiftOperations from './ShiftOperations.jsx';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -16,6 +16,8 @@ import {
   X,
   Layers,
   Truck,
+  Settings,
+  Wrench,
 } from 'lucide-react';
 
 const NAV = [
@@ -37,12 +39,9 @@ const NAV = [
     Icon: Package,
     roles: ['Admin', 'Pharmacist'],
   },
-  {
-    to: '/reports',
-    label: 'Reports',
-    Icon: BarChart3,
-    roles: ['Admin', 'Pharmacist', 'Cashier'],
-  },
+];
+
+const ADMINISTRATION_NAV = [
   {
     to: '/users',
     label: 'Users',
@@ -111,49 +110,32 @@ function HardwareStatus() {
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isAdministrationRoute = ADMINISTRATION_NAV.some(({ to }) =>
+    pathname === to || pathname.startsWith(`${to}/`)
+  );
+  const [administrationOpen, setAdministrationOpen] = useState(isAdministrationRoute);
+
+  useEffect(() => {
+    if (isAdministrationRoute) setAdministrationOpen(true);
+  }, [pathname, isAdministrationRoute]);
+
+  const isReportsRoute = pathname === '/reports' || pathname.startsWith('/reports/');
+  const [reportsOpen, setReportsOpen] = useState(isReportsRoute);
+  useEffect(() => { if(isReportsRoute) setReportsOpen(true); }, [pathname, isReportsRoute]);
+
+  const isUtilitiesRoute = pathname === '/utilities' || pathname.startsWith('/utilities/');
+  const [utilitiesOpen,setUtilitiesOpen] = useState(isUtilitiesRoute);
+  useEffect(()=>{if(isUtilitiesRoute)setUtilitiesOpen(true);},[pathname,isUtilitiesRoute]);
 
   const [modal, setModal] = useState(false);
-  const [working, setWorking] = useState(false);
-  const [endShiftText, setEndShiftText] = useState('');
 
   const visible = NAV.filter((n) =>
     n.roles.includes(user?.role ?? '')
   );
-
-  const handleXRead = async () => {
-    try {
-      const { data } = await reportsApi.xread();
-
-      if (data.Success) {
-        toast.success('X-Read complete.');
-      }
-    } catch {
-      toast.error('X-Read failed.');
-    }
-  };
-
-  const doLogout = async (endShift) => {
-    if (
-      endShift &&
-      endShiftText.trim().toUpperCase() !== 'ENDSHIFT'
-    ) {
-      toast.error('Please enter ENDSHIFT to end your shift.');
-      return;
-    }
-
-    setWorking(true);
-
-    try {
-      await authApi.logout(0, endShift);
-    } catch {
-      toast.error('Logout error — clearing session anyway.');
-    } finally {
-      logout();
-      navigate('/login', { replace: true });
-      setWorking(false);
-      setModal(false);
-    }
-  };
+  const administrationItems = ADMINISTRATION_NAV.filter((n) =>
+    n.roles.includes(user?.role ?? '')
+  );
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
@@ -181,7 +163,7 @@ export default function Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-2">
+        <nav className="min-h-0 flex-1 overflow-y-auto py-2">
           {visible.map(({ to, label, Icon }) => (
             <NavLink
               key={to}
@@ -198,15 +180,97 @@ export default function Layout() {
             </NavLink>
           ))}
 
-          <div className="mx-4 my-3 border-t border-green-800" />
+          {['Admin','Pharmacist','Cashier'].includes(user?.role) && (
+            <div>
+              <button
+                type="button"
+                aria-expanded={reportsOpen}
+                aria-controls="reports-navigation"
+                onClick={() => setReportsOpen((open) => !open)}
+                className={
+                  'flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm transition-colors ' +
+                  (isReportsRoute
+                    ? 'font-semibold text-white'
+                    : 'text-green-200 hover:bg-white/10 hover:text-white')
+                }
+              >
+                <BarChart3 size={17} />
+                <span className="flex-1">Reports</span>
+                <ChevronDown
+                  size={15}
+                  aria-hidden="true"
+                  className={`transition-transform ${reportsOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              <div id="reports-navigation" hidden={!reportsOpen}>
+                {REPORTS.filter(item=>!item.roles || item.roles.includes(user?.role)).map(({ id, label }) => (
+                  <NavLink
+                    key={id}
+                    to={`/reports/${id}`}
+                    className={({ isActive }) =>
+                      'flex items-center gap-3 py-2.5 pl-10 pr-5 text-sm transition-colors ' +
+                      (isActive
+                        ? 'border-r-2 border-green-300 bg-white/15 font-semibold text-white'
+                        : 'text-green-200 hover:bg-white/10 hover:text-white')
+                    }
+                  >
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <button
-            onClick={handleXRead}
-            className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm text-green-200 hover:bg-white/10 hover:text-white"
-          >
-            <Printer size={17} />
-            X-Read
-          </button>
+          {administrationItems.length > 0 && (
+            <div>
+              <button
+                type="button"
+                aria-expanded={administrationOpen}
+                aria-controls="administration-navigation"
+                onClick={() => setAdministrationOpen((open) => !open)}
+                className={
+                  'flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm transition-colors ' +
+                  (isAdministrationRoute
+                    ? 'font-semibold text-white'
+                    : 'text-green-200 hover:bg-white/10 hover:text-white')
+                }
+              >
+                <Settings size={17} />
+                <span className="flex-1">Administration</span>
+                <ChevronDown
+                  size={15}
+                  aria-hidden="true"
+                  className={`transition-transform ${administrationOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              <div id="administration-navigation" hidden={!administrationOpen}>
+                {administrationItems.map(({ to, label, Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) =>
+                      'flex items-center gap-3 py-2.5 pl-10 pr-5 text-sm transition-colors ' +
+                      (isActive
+                        ? 'border-r-2 border-green-300 bg-white/15 font-semibold text-white'
+                        : 'text-green-200 hover:bg-white/10 hover:text-white')
+                    }
+                  >
+                    <Icon size={16} />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <button type="button" aria-expanded={utilitiesOpen} aria-controls="utilities-navigation" onClick={()=>setUtilitiesOpen(open=>!open)} className={'flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm transition-colors '+(isUtilitiesRoute?'font-semibold text-white':'text-green-200 hover:bg-white/10 hover:text-white')}>
+              <Wrench size={17}/><span className="flex-1">Utilities</span><ChevronDown size={15} aria-hidden="true" className={`transition-transform ${utilitiesOpen?'rotate-180':''}`}/>
+            </button>
+            <div id="utilities-navigation" hidden={!utilitiesOpen}>
+              <NavLink to="/utilities/receipts" className={({isActive})=>'flex items-center py-2.5 pl-10 pr-5 text-sm transition-colors '+(isActive?'border-r-2 border-green-300 bg-white/15 font-semibold text-white':'text-green-200 hover:bg-white/10 hover:text-white')}>Receipts</NavLink>
+            </div>
+          </div>
         </nav>
 
         {/* User / Logout */}
@@ -268,66 +332,7 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* End Shift Modal */}
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            {/* Modal Header */}
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-800">
-                End of Shift
-              </h3>
-
-              <button
-                onClick={() => setModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Modal Description */}
-            <p className="mb-5 text-sm text-gray-500">
-              Enter <strong>ENDSHIFT</strong> to confirm that you
-              want to end your shift.
-            </p>
-
-            {/* Confirmation Input */}
-            <input
-              type="text"
-              value={endShiftText}
-              onChange={(e) => setEndShiftText(e.target.value)}
-              className="mb-5 w-full rounded-xl border border-gray-300 px-4 py-3 text-center text-2xl font-bold outline-none focus:ring-2 focus:ring-green-500"
-              autoFocus
-            />
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => doLogout(false)}
-                disabled={working}
-                className="flex-1 rounded-xl bg-gray-100 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-200 disabled:opacity-60"
-              >
-                Logout Only
-              </button>
-
-              <button
-                onClick={() => doLogout(true)}
-                disabled={working}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-              >
-                {working ? (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <LogOut size={14} />
-                )}
-
-                Logout + End Shift
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {modal && <ShiftOperations onClose={()=>setModal(false)} onLogout={()=>{logout();navigate('/login',{replace:true});}}/>}
     </div>
   );
 }

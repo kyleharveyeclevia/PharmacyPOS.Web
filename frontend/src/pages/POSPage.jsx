@@ -19,6 +19,7 @@ import {
   Printer,
 } from 'lucide-react';
 
+import ReceiptPreview from '../components/pos/ReceiptPreview.jsx';
 import { useHardwareAgent } from '../context/HardwareAgentContext.jsx';
 import { useTerminalAccess } from '../context/TerminalAccessContext.jsx';
 
@@ -53,6 +54,9 @@ export default function POSPage() {
   const [rxNo, setRxNo] = useState('');
   const [processing, setProcessing] = useState(false);
   const [lastReceipt, setLastReceipt] = useState('');
+  const [receiptPreview,setReceiptPreview] = useState(null);
+  const saleInFlight = useRef(false);
+  const closeReceipt = () => { setReceiptPreview(null); setTimeout(()=>searchRef.current?.focus(),0); };
 
   const searchRef = useRef(null);
   const processSaleRef = useRef(null);
@@ -139,8 +143,8 @@ export default function POSPage() {
       const ex = prev.find((c) => c.ProductId === p.Id);
 
       if (ex) {
-        if (ex.Quantity >= p.StockQuantity) {
-          toast.error('Max stock: ' + p.StockQuantity);
+        if (ex.Quantity >= (p.AvailableStockQuantity ?? p.StockQuantity)) {
+          toast.error('Max stock: ' + (p.AvailableStockQuantity ?? p.StockQuantity));
           return prev;
         }
 
@@ -239,6 +243,8 @@ export default function POSPage() {
   const change = tendered - total;
 
   const processSale = useCallback(async () => {
+    if(saleInFlight.current || receiptPreview)return;
+    if(!isAvailable){toast.error('Hardware agent is disconnected.');return;}
     if (!cart.length) {
       toast.error('Cart is empty.');
       return;
@@ -261,6 +267,7 @@ export default function POSPage() {
       return;
     }
 
+    saleInFlight.current=true;
     setProcessing(true);
 
     try {
@@ -283,9 +290,10 @@ export default function POSPage() {
       }
 
       setLastReceipt(data.Data.receiptNumber);
+      setReceiptPreview({transaction:data.Data.transaction ?? null, transactionId:data.Data.transactionId, receiptNumber:data.Data.receiptNumber});
 
       toast.success(
-        '✅ Sale complete!  Change: ' + php(change)
+        'Sale complete! Change: ' + php(data.Data.transaction?.Change ?? change)
       );
 
       setCart([]);
@@ -295,12 +303,12 @@ export default function POSPage() {
       setRxNo('');
       setCustomerId(customers[0]?.Id ?? null);
 
-      searchRef.current?.focus();
     } catch (e) {
       toast.error(
         e.response?.data?.Message ?? 'Sale failed.'
       );
     } finally {
+      saleInFlight.current=false;
       setProcessing(false);
     }
   }, [
@@ -316,6 +324,8 @@ export default function POSPage() {
     customers,
     terminal,
     vatExemptAmount,
+    receiptPreview,
+    isAvailable,
   ]);
 
   useEffect(() => {
@@ -323,7 +333,8 @@ export default function POSPage() {
   }, [processSale]);
 
   return (
-    <div className="flex h-full overflow-hidden bg-gray-100">
+    <>
+    <div inert={receiptPreview ? '' : undefined} aria-hidden={receiptPreview ? true : undefined} className="flex h-full overflow-hidden bg-gray-100">
       {/* Left: Search + Cart */}
       <div className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
         {/* Search Bar */}
@@ -393,7 +404,7 @@ export default function POSPage() {
                           : 'text-gray-400')
                       }
                     >
-                      Stock: {p.StockQuantity}
+                      Stock: {(p.AvailableStockQuantity ?? p.StockQuantity)}
                     </div>
                   </div>
                 </button>
@@ -703,7 +714,7 @@ export default function POSPage() {
 
               <button
                 onClick={() =>
-                  setTendered(toDecimal(total, 2))
+                  setTendered(Number(total.toFixed(2)))
                 }
                 className="rounded-lg bg-teal-600 px-1 text-xs font-bold text-white transition hover:bg-teal-700"
               >
@@ -756,7 +767,7 @@ export default function POSPage() {
           <button
             onClick={processSale}
             disabled={
-              processing ||
+              processing || !!receiptPreview ||
               cart.length === 0 ||
               !isAvailable
             }
@@ -786,5 +797,7 @@ export default function POSPage() {
         </div>
       </div>
     </div>
+    {receiptPreview && <ReceiptPreview receipt={receiptPreview} terminalName={terminal?.TerminalName} onClose={closeReceipt}/>}
+    </>
   );
 }
